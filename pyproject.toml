@@ -1,0 +1,32 @@
+[project]
+name = "agentgenius"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=2.2.3",
+    "pip>=24.3.1",
+    "pydantic-ai>=0.0.15",
+    "python-dotenv>=1.0.1",
+]
+
+[tool.ruff]
+line-length = 120
+lint.select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+]
+lint.ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+    "B905",  # zip() without an explicit strict= parameter
+]
+
+[tool.dependencies]
+python-dotenv = "*"
+nest-asyncio = "*"
