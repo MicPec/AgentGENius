@@ -17,7 +17,7 @@ def mock_tool():
 @pytest.fixture
 def agent(mock_tool):
     tools = ToolSet(mock_tool)
-    result = BaseAgent(model="test", system_prompt="You are a helpful assistant.", toolset=tools)
+    result = BaseAgent(name="test", model="test", system_prompt="You are a helpful assistant.", toolset=tools)
     yield result
     result = None
 
