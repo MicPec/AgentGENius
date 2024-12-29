@@ -52,7 +52,7 @@ class ToolSet:
 
     @classmethod
     def from_json(cls, json_str, namespace=None):
-        data = ToolSetSchema.parse_raw(json_str)
+        data = ToolSetSchema.model_validate_json(json_str)
         return cls.from_dict(data.tools, namespace=namespace)
 
     def __init__(self, tools: Union[list[Callable], Callable, None] = None):
@@ -105,7 +105,7 @@ class ToolSet:
         self.tools.remove(self.get(toolname))
 
     def to_dict(self):
-        return ToolSetSchema(tools=self._func_names()).dict()["tools"]
+        return ToolSetSchema(tools=self._func_names()).model_dump()["tools"]
 
     def to_json(self):
-        return ToolSetSchema(tools=self._func_names()).json()
+        return ToolSetSchema(tools=self._func_names()).model_dump_json()

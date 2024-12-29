@@ -68,7 +68,7 @@ class BaseAgent:
         return self.agent.system_prompt
 
     def get_system_prompt(self) -> str:
-        return self.agent._system_prompts[0]
+        return self.agent._system_prompts[0] if self.agent._system_prompts else ""  # pylint: disable=protected-access
 
     def run_sync(self, query: str, **kwargs) -> str:
         return self.agent.run_sync(query, **kwargs)
