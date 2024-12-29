@@ -1,8 +1,5 @@
-import asyncio
-import json
-from dataclasses import dataclass, field
-
 from typing import List, Optional
+
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext, Tool
 
@@ -36,8 +33,8 @@ class BaseAgent:
     # toolset: ToolSet | None = field(default=None)
 
     @classmethod
-    def from_json(cls, json_str, namespace=None):
-        data = json.loads(json_str)
+    def from_json(cls, json_str: str, namespace=None):
+        data = AgentSchema.model_validate_json(json_str).model_dump()
         if data.get("toolset"):
             data["toolset"] = ToolSet.from_dict(data["toolset"], namespace=namespace)
         return cls(**data)
@@ -53,14 +50,18 @@ class BaseAgent:
                 # self.agent._register_function(tool, takes_ctx=True, retries=3, prepare=None)
 
     def to_dict(self):
-        return {
-            "model": self.model,
-            "system_prompt": self.get_system_prompt(),
-            "toolset": self.toolset.to_dict() if self.toolset else None,
-        }
+        return AgentSchema(
+            model=self.model,
+            system_prompt=self.get_system_prompt(),
+            toolset=self.toolset.to_dict() if self.toolset else None,
+        ).model_dump()
 
     def to_json(self) -> str:
-        return json.dumps(self.to_dict())
+        return AgentSchema(
+            model=self.model,
+            system_prompt=self.get_system_prompt(),
+            toolset=self.toolset.to_dict() if self.toolset else None,
+        ).model_dump_json()
 
     @property
     def system_prompt(self) -> callable:

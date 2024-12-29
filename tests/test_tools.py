@@ -106,6 +106,15 @@ class TestToolSet:
         expected = f"ToolSet(['{sample_function.__name__}'])"
         assert repr(toolset) == expected
 
+    def test_duplicate_tool_name(self, sample_function):
+        """Test that adding a tool with a duplicate name raises ValueError"""
+        with pytest.raises(ValueError, match=f"Tool {sample_function.__name__} already exists in ToolSet"):
+            toolset = ToolSet([sample_function, sample_function])  # Try to add two tools with same name
+
+        toolset = ToolSet(sample_function)
+        with pytest.raises(ValueError, match=f"Tool {sample_function.__name__} already exists in ToolSet"):
+            toolset.add(sample_function)  # Try to add second tool with same name
+
     @pytest.mark.asyncio
     async def test_async_tool_execution(self, sample_async_function):
         """Test that async tools can be added and executed"""
