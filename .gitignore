@@ -6,7 +6,9 @@ dist/
 wheels/
 *.egg-info
 
+.vscode/
 .venv
 .env
 tools/
+agents/
 logs/
