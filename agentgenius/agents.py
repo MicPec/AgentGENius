@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import List, Optional, overload
 
 from pydantic import BaseModel, Field
-from pydantic_ai import Agent
+from pydantic_ai import Agent, ModelRetry, RunContext
 from pydantic_ai.exceptions import UserError
 
 from .config import config
@@ -31,7 +31,6 @@ class AgentSchema(BaseModel):
     }
 
 
-# @dataclass
 class BaseAgent:
     """BaseAgent represents an AI agent with a specific model, system prompt, and toolset.
     This class allows for the creation, serialization, and deserialization of agent instances.
@@ -50,33 +49,42 @@ class BaseAgent:
             return cls.from_json(f.read(), namespace=namespace)
 
     def __init__(self, name: str, model: str, system_prompt: str, toolset: ToolSet | None = None, **kwargs):
-        # super().__init__()
-        # self.name = name
+        self.agent_store = AgentStore()
         self.model = model
         self.agent = Agent(model=model, system_prompt=system_prompt, name=name, **kwargs)
-        self.toolset = toolset
-        self._refresh_toolset()
+        self.toolset = toolset if toolset else ToolSet()
+        self.toolset.add(self.ask_agent)
+        self.system_prompt(self._inject_agents)
+        self.system_prompt(self._inject_tools)
 
     def __repr__(self):
         return f"Agent(name={self.name}, model={self.model}, toolset={self.toolset})"
 
-    def _check_func_arguments(self, func: callable) -> bool:
-        return func.__code__.co_argcount > 0
-        # signature = inspect.signature(func)
-        # parameters = signature.parameters
-        # return len(parameters) > 0
+    def _is_func_plain(self, func: callable) -> bool:
+        # return func.__code__.co_argcount == 0
+        import inspect
+
+        signature = inspect.signature(func)
+        return not any("RunContext" in str(signature.parameters[t].annotation) for t in signature.parameters.keys())
 
     def _refresh_toolset(self):
         if self.toolset:
             for tool in self.toolset:
                 try:
-                    if self._check_func_arguments(tool):
-                        self.agent.tool(tool)
-                    else:
+                    if self._is_func_plain(tool):
                         self.agent.tool_plain(tool)
+                    else:
+                        self.agent.tool(tool)
                 except UserError as e:
                     # logger.debug(f"Tool {tool} already exists in Agents toolset")
                     pass
+
+    def _inject_agents(self):
+        return f"Agents: {self.agent_store.list()}"
+
+    def _inject_tools(self):
+        self._refresh_toolset()
+        return f"Tools: {self.toolset}"
 
     def to_dict(self):
         return AgentSchema(
@@ -118,16 +126,29 @@ class BaseAgent:
         return self.agent._system_prompts[0] if self.agent._system_prompts else ""  # pylint: disable=protected-access
 
     def run_sync(self, *args, **kwargs) -> str:
-        self._refresh_toolset()
+        # self._refresh_toolset()
         return self.agent.run_sync(*args, **kwargs)
 
     async def run(self, *args, **kwargs) -> str:
-        self._refresh_toolset()
+        # self._refresh_toolset()
         return await self.agent.run(*args, **kwargs)
 
     async def run_stream(self, *args, **kwargs):
-        self._refresh_toolset()
+        # self._refresh_toolset()
         return await self.agent.run_stream(*args, **kwargs)
+
+    async def ask_agent(self, ctx: RunContext[any], agent_name: str, question: str, deps: list[str]) -> str:
+        """Ask a specific agent a question.
+        He can solve tasks that you can't solve."""
+        if agent := self.agent_store.get(agent_name):
+            return await agent.run(question, deps=deps)
+        return f"Agent '{agent_name}' not found"
+
+    async def list_agents(self, ctx: RunContext[any]):
+        """List all agents that are stored in the agent store.
+        Check if any of them can solve the task."""
+        print(self.agent_store.list())
+        return self.agent_store.list()
 
 
 class AgentStore:
@@ -169,12 +190,19 @@ class AgentStore:
         except KeyError:
             return None
 
-    def load_agents(self):
+    def load_agents(self) -> "AgentStore":
         for agent_file in self.path.iterdir():
-            if agent_file.suffix == ".json":
+            if agent_file.name.endswith(".json"):
                 agent = BaseAgent.from_file(agent_file)
                 self.add(agent)
         return self
+
+    def load_agent(self, name: str) -> BaseAgent | None:
+        agent_file = self.path / f"{name}.json"
+        if agent_file.exists():
+            agent = BaseAgent.from_file(agent_file)
+            self.add(agent)
+        return agent
 
     def save_agent(self, agent: BaseAgent) -> str:
         config.agents_path.mkdir(parents=True, exist_ok=True)  # pylint: disable=no-member

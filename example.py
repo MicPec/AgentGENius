@@ -1,5 +1,3 @@
-from datetime import datetime
-
 import nest_asyncio
 import requests
 from dotenv import load_dotenv
@@ -17,13 +15,17 @@ def ask_user_tool(ctx: RunContext[str], question: str) -> str:
     return input(question + " ")
 
 
-def get_current_datetime() -> str:
-    """Get the current datetime as a string in the format "YYYY-MM-DD HH:MM:SS"."""
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+def get_current_datetime(format_str: str = "%Y-%m-%d %H:%M:%S") -> str:
+    """Get the current datetime as a string in the specified python format."""
+
+    from datetime import datetime
+
+    return datetime.now().strftime(format_str)
 
 
 tools = ToolSet(ask_user_tool)
 agent = AgentGENius(name="assistant", model="openai:gpt-4o-mini", toolset=tools)
+agent.agent_store.load_agents()
 
 agent.toolset.add(get_current_datetime)
 
@@ -32,7 +34,7 @@ agent.toolset.add(get_current_datetime)
 def get_my_public_ip() -> str:
     """Get the public IP address of the current machine using an external service."""
     try:
-        response = requests.get("https://api.ipify.org?format=json")
+        response = requests.get("https://api.ipify.org?format=json", timeout=5)
         if response.status_code == 200:
             return response.json().get("ip", "")
         else:
@@ -45,7 +47,7 @@ def get_my_public_ip() -> str:
 def get_location_by_ip(ctx: RunContext[str], ip_address: str) -> dict:
     """Get the geographical location of an IP address using an external API."""
     try:
-        response = requests.get(f"https://ipinfo.io/{ip_address}/json")
+        response = requests.get(f"https://ipinfo.io/{ip_address}/json", timeout=5)
         if response.status_code == 200:
             return response.json()
         else:
@@ -54,14 +56,15 @@ def get_location_by_ip(ctx: RunContext[str], ip_address: str) -> dict:
         return f"Error: {e}"
 
 
-print(agent.toolset)
+# print(agent.toolset)
 
 
 def main():
     message_history = []
-    print(f"Arent: {agent.run_sync("Hello").data}")
+    print(f"Agent: {agent.run_sync("Hello").data}")
     while True:
         user_input = input("You: ")
+
         if user_input.lower() == "bye":
             print("Agent: Goodbye!")
             break

@@ -10,15 +10,17 @@ class ToolSchema(BaseModel):
     description: Optional[str] = Field(None, description="Tool description")
     args: Optional[dict] = Field(None, description="Tool arguments and types")
     return_type: Optional[str] = Field(None, description="Tool return type")
+    code: Optional[str] = Field(None, description="Tool code")
 
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {
-                    "name": "ask_user_tool",
-                    "description": "Ask the user a question and get their response",
-                    "args": {"question": "str"},
+                    "name": "get_datetime",
+                    "description": "Get current datetime",
+                    "args": {"format": "str"},
                     "return_type": "str",
+                    "code": "def get_datetime(ctx: RunContext[str], format: str = '%Y-%m-%d %H:%M:%S') -> str:\n    import datetime\n    return datetime.datetime.now().strftime(format)",
                 }
             ]
         }
