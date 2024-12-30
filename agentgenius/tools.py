@@ -37,7 +37,7 @@ class ToolSet:
     """A set of tools that can be passed to an agent"""
 
     @classmethod
-    def from_dict(cls, data, namespace=None):
+    def from_dict(cls, data: Union[List[str], Callable], namespace=None) -> "ToolSet":
         if namespace is None:
             namespace = globals()
 
@@ -51,7 +51,7 @@ class ToolSet:
         return cls(data)
 
     @classmethod
-    def from_json(cls, json_str, namespace=None):
+    def from_json(cls, json_str: str, namespace=None) -> "ToolSet":
         data = ToolSetSchema.model_validate_json(json_str)
         return cls.from_dict(data.tools, namespace=namespace)
 
@@ -88,10 +88,10 @@ class ToolSet:
     def __repr__(self):
         return f"ToolSet({self._func_names()})"
 
-    def _func_names(self):
+    def _func_names(self) -> List[str]:
         return [tool.__name__ for tool in self.tools]
 
-    def get(self, name, default=None):
+    def get(self, name: str, default=None) -> Optional[Callable]:
         return next((tool for tool in self.tools if tool.__name__ == name), default)
 
     def add(self, tool: Callable):

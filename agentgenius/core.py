@@ -1,6 +1,6 @@
-from .agents import BaseAgent, AgentSchema
-from .tools import ToolSet, ToolSchema
+from .agents import AgentSchema, BaseAgent
 from .config import config
+from .tools import ToolSchema, ToolSet
 
 
 class AgentGENius(BaseAgent):
