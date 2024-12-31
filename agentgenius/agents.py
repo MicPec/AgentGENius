@@ -147,7 +147,6 @@ class BaseAgent:
     async def list_agents(self, ctx: RunContext[any]):
         """List all agents that are stored in the agent store.
         Check if any of them can solve the task."""
-        print(self.agent_store.list())
         return self.agent_store.list()
 
 

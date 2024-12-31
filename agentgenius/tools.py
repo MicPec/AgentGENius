@@ -84,6 +84,9 @@ class ToolSet:
     def __getitem__(self, name):
         return self.get(name)
 
+    def __len__(self):
+        return len(self.tools)
+
     def __all__(self):
         return self.tools
 
