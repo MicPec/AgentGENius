@@ -68,7 +68,7 @@ class ToolSet:
                         raise ValueError(f"Tool {tool.__name__} already exists in ToolSet")
                     self.add(tool)
             else:
-                raise ValueError("Tools must be a list of callable tools or a single callable tool")
+                raise ValueError("Tools must be a list of callable or a single callable.")
 
     def __iter__(self):
         return iter(self.tools)
