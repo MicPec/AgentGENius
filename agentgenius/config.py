@@ -1,4 +1,6 @@
+import logging
 from pathlib import Path
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -21,3 +23,9 @@ class AgentGENiusConfig(BaseModel):
 
 
 config = AgentGENiusConfig()
+
+logging.basicConfig(
+    level=config.log_level,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.FileHandler(config.logs_path / "agent_genius.log")],
+)

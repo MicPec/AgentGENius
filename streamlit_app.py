@@ -82,7 +82,7 @@ def display_sidebar():
                 "Name": name,
                 "Model": agent.model,
                 "Prompt": agent.get_system_prompt(),
-                "Tools Count": len(agent.toolset) if hasattr(agent, "toolset") else 0,
+                "Tools ": [tool for tool in agent.toolset.list],
             }
         )
 
@@ -91,9 +91,9 @@ def display_sidebar():
         st.sidebar.dataframe(
             pd.DataFrame(agents_data),
             column_config={
-                "Name": st.column_config.TextColumn("Name", width="medium", pinned=True),
-                "Model": st.column_config.TextColumn("Model", width="medium"),
-                "Tools Count": st.column_config.NumberColumn("Tools", width="small"),
+                "Name": st.column_config.TextColumn("Name", width="small", pinned=True),
+                "Model": st.column_config.TextColumn("Model", width="small"),
+                "Tools": st.column_config.ListColumn("Tools", width="small"),
             },
             hide_index=True,
             use_container_width=True,

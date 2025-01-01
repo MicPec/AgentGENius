@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import List, Optional, overload
 
@@ -23,6 +24,7 @@ class AgentSchema(BaseModel):
                 {
                     "name": "my_agent",
                     "model": "openai:gpt-4o-mini",
+                    "description": "My agent description",
                     "system_prompt": "You are a helpful assistant.",
                     "toolset": ["ask_user_tool"],
                 }
@@ -37,14 +39,31 @@ class BaseAgent:
     """
 
     @classmethod
-    def from_json(cls, json_str: str, namespace=None):
-        data = AgentSchema.model_validate_json(json_str).model_dump()
-        if data.get("toolset"):
-            data["toolset"] = ToolSet.from_dict(data["toolset"], namespace=namespace)
-        return cls(**data)
+    def from_json(cls, json_str: str, namespace):
+        namespace = globals() | namespace
+        try:
+            logging.debug("Deserializing agent from JSON: %s", json_str.replace("\n", "\\n").strip())
+            data = AgentSchema.model_validate_json(json_str).model_dump()
+            logging.info("Validated agent schema with data: %s", data)
+
+            if data.get("toolset"):
+                try:
+                    data["toolset"] = ToolSet.from_dict(data["toolset"], namespace=namespace)
+                    logging.info("Successfully created toolset: %s", data["toolset"])
+                except ValueError as e:
+                    logging.error("Failed to create toolset: %s", str(e))
+                    raise
+            else:
+                logging.info("No toolset specified in agent data")
+
+            return cls(**data)
+        except Exception as e:
+            logging.error("Error during agent deserialization: %s", str(e))
+            raise
 
     @classmethod
-    def from_file(cls, file_path: Path, namespace=None):
+    def from_file(cls, file_path: Path, namespace):
+        namespace = globals() | namespace
         with open(file_path, "r") as f:
             return cls.from_json(f.read(), namespace=namespace)
 
@@ -54,8 +73,11 @@ class BaseAgent:
         self.agent = Agent(model=model, system_prompt=system_prompt, name=name, **kwargs)
         self.toolset = toolset if toolset else ToolSet()
         self.toolset.add(self.ask_agent)
+        self._refresh_toolset()
+        # inject agents and tools into the system prompt
         self.system_prompt(self._inject_agents)
         self.system_prompt(self._inject_tools)
+        logging.info("%s: Agent created: %s", self.__class__.__name__, self.name)
 
     def __repr__(self):
         return f"Agent(name={self.name}, model={self.model}, toolset={self.toolset})"
@@ -68,23 +90,23 @@ class BaseAgent:
         return not any("RunContext" in str(signature.parameters[t].annotation) for t in signature.parameters.keys())
 
     def _refresh_toolset(self):
-        if self.toolset:
-            for tool in self.toolset:
-                try:
-                    if self._is_func_plain(tool):
-                        self.agent.tool_plain(tool)
-                    else:
-                        self.agent.tool(tool)
-                except UserError as e:
-                    # logger.debug(f"Tool {tool} already exists in Agents toolset")
-                    pass
+        # if self.toolset:
+        for tool in self.toolset:
+            try:
+                if self._is_func_plain(tool):
+                    self.agent.tool_plain(tool)
+                else:
+                    self.agent.tool(tool)
+            except UserError as e:
+                logging.debug("Error adding tool %s to agent: %s", tool.__name__, str(e))
+        logging.info("REFRESHING: Toolset refreshed")
 
     def _inject_agents(self):
-        return f"Agents: {self.agent_store.list()}"
+        return f"You got these Agents available: {self.agent_store.list()}"
 
     def _inject_tools(self):
         self._refresh_toolset()
-        return f"Tools: {self.toolset}"
+        return f"You got these Tools available: {self.toolset}"
 
     def to_dict(self):
         return AgentSchema(
@@ -192,14 +214,14 @@ class AgentStore:
     def load_agents(self) -> "AgentStore":
         for agent_file in self.path.iterdir():
             if agent_file.name.endswith(".json"):
-                agent = BaseAgent.from_file(agent_file)
+                agent = BaseAgent.from_file(agent_file, namespace=globals())
                 self.add(agent)
         return self
 
     def load_agent(self, name: str) -> BaseAgent | None:
         agent_file = self.path / f"{name}.json"
         if agent_file.exists():
-            agent = BaseAgent.from_file(agent_file)
+            agent = BaseAgent.from_file(agent_file, namespace=globals())
             self.add(agent)
         return agent
 

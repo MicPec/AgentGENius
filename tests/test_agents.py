@@ -46,7 +46,7 @@ def test_agent_serialization(agent):
     assert isinstance(data["toolset"], list)
 
     # Test deserialization
-    namespace = {"tool": agent.toolset.tools[0]}  # Pass the original tool in namespace
+    namespace = {"tool": agent.toolset.toolset[0]}  # Pass the original tool in namespace
     agent2 = BaseAgent.from_json(json_str, namespace=namespace)
 
     assert agent2.model == agent.model

@@ -24,20 +24,20 @@ class TestToolSet:
     def test_toolset_creation_empty(self):
         """Test creating an empty ToolSet"""
         toolset = ToolSet()
-        assert len(toolset.tools) == 0
+        assert len(toolset.toolset) == 0
 
     def test_toolset_creation_with_single_tool(self, sample_function):
         """Test creating a ToolSet with a single tool"""
         toolset = ToolSet(sample_function)
-        assert len(toolset.tools) == 1
-        assert toolset.tools[0] == sample_function
+        assert len(toolset.toolset) == 1
+        assert toolset.toolset[0] == sample_function
 
     def test_toolset_creation_with_multiple_tools(self, sample_function, sample_async_function):
         """Test creating a ToolSet with multiple tools"""
         toolset = ToolSet([sample_function, sample_async_function])
-        assert len(toolset.tools) == 2
-        assert sample_function in toolset.tools
-        assert sample_async_function in toolset.tools
+        assert len(toolset.toolset) == 2
+        assert sample_function in toolset.toolset
+        assert sample_async_function in toolset.toolset
 
     def test_toolset_iteration(self, sample_function, sample_async_function):
         """Test that ToolSet is iterable"""
@@ -53,12 +53,12 @@ class TestToolSet:
 
         # Test add
         toolset.add(sample_function)
-        assert len(toolset.tools) == 1
-        assert sample_function in toolset.tools
+        assert len(toolset.toolset) == 1
+        assert sample_function in toolset.toolset
 
         # Test remove
         toolset.remove(sample_function.__name__)
-        assert len(toolset.tools) == 0
+        assert len(toolset.toolset) == 0
 
     def test_toolset_get(self, sample_function):
         """Test getting a tool by name"""
@@ -97,8 +97,8 @@ class TestToolSet:
         namespace = {"func": sample_function}
 
         toolset2 = ToolSet.from_json(json_str, namespace=namespace)
-        assert len(toolset2.tools) == 1
-        assert toolset2.tools[0] == sample_function
+        assert len(toolset2.toolset) == 1
+        assert toolset2.toolset[0] == sample_function
 
     def test_toolset_repr(self, sample_function):
         """Test string representation of ToolSet"""
@@ -115,10 +115,19 @@ class TestToolSet:
         with pytest.raises(ValueError, match=f"Tool {sample_function.__name__} already exists in ToolSet"):
             toolset.add(sample_function)  # Try to add second tool with same name
 
+    def test_toolset_list_property(self, sample_function, sample_async_function):
+        """Test the list property returns correct tool names"""
+        toolset = ToolSet([sample_function, sample_async_function])
+        tool_list = toolset.list
+        assert isinstance(tool_list, list)
+        assert len(tool_list) == 2
+        assert sample_function.__name__ in tool_list
+        assert sample_async_function.__name__ in tool_list
+
     @pytest.mark.asyncio
     async def test_async_tool_execution(self, sample_async_function):
         """Test that async tools can be added and executed"""
         toolset = ToolSet(sample_async_function)
-        tool = toolset.tools[0]
+        tool = toolset.toolset[0]
         result = await tool("World")
         assert result == "Hello World"
