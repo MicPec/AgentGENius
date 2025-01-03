@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional, Union, overload
 
 from pydantic import BaseModel, Field
 
@@ -32,6 +32,12 @@ class ToolSchema(BaseModel):
         }
     }
 
+    def save_to_file(self, path: Path = config.tools_path):
+        logging.info("Saving tool to file: %s.py", self.name)
+        path.mkdir(parents=True, exist_ok=True)
+        with open(path / f"{self.name}.py", "w") as f:
+            f.write(self.code)
+
 
 class ToolSetSchema(BaseModel):
     """Schema for ToolSet serialization/deserialization"""
@@ -45,11 +51,54 @@ class ToolSet:
     """A set of tools that can be passed to an agent"""
 
     @staticmethod
+    def list_all_tools(path: Path = config.tools_path):
+        return ToolSet.list_builtin_tools() + ToolSet.list_external_tools(path)
+
+    @staticmethod
+    def list_external_tools(path: Path = config.tools_path):
+        return [f.stem for f in path.glob("*.py")]
+
+    @staticmethod
+    def list_builtin_tools():
+        from . import builtin_tools
+
+        return [
+            name
+            for name in dir(builtin_tools)
+            if callable(getattr(builtin_tools, name)) and not name.startswith("_") and name.endswith("_tool")
+        ]
+
+    @staticmethod
+    def tool_from_name(tool_name: str) -> callable:
+        from . import builtin_tools
+
+        logger.info("Executing tool from string: %s", tool_name)
+        if tool_name in ToolSet.list_builtin_tools():
+            return getattr(builtin_tools, tool_name)
+        if tool_name in ToolSet.list_external_tools():
+            return ToolSet.tool_from_file(tool_name)
+        raise ValueError(f"Tool {tool_name} not found")
+
+    @staticmethod
+    def tool_from_schema(tool: ToolSchema) -> callable:
+        logger.info("Executing tool from string: %s", tool.code)
+        namespace = {}
+        try:
+            tool.save_to_file(config.tools_path)
+            exec(tool.code, globals(), namespace)
+        except Exception as e:
+            logger.error(f"Error executing code: {e}")
+            return f"Error executing code: {e}"
+
+        # This will return the most recently defined function
+        return next(f for f in namespace.values() if callable(f))
+
+    @staticmethod
     def tool_from_file(toolname: str, path: Path = config.tools_path):
         def run_func(func_str: str) -> Union[callable, str]:
             namespace = {}
             try:
-                logger.info("Executing tool: %s", {toolname})
+                logger.info("Executing tool: %s", toolname)
                 exec(func_str, globals(), namespace)
             except Exception as e:
                 logger.error("Error executing code: %s", str(e))
@@ -98,17 +147,19 @@ class ToolSet:
         return cls(data)
 
     @classmethod
-    def from_json(cls, json_str: str, namespace) -> "ToolSet":
-        data = ToolSetSchema.model_validate_json(json_str)
-        return cls.from_dict(data.toolset, namespace=namespace)
+    def from_json(cls, data: ToolSetSchema, namespace) -> "ToolSet":
+        result = ToolSetSchema.model_validate_json(data)
+        return cls.from_dict(result.toolset, namespace=namespace)
 
-    def __init__(self, tools: Union[list[Callable], Callable, None] = None):
+    def __init__(self, tools: Union[list[Callable], list[str], Callable, None] = None):
         self.toolset = []
         if tools:
             if isinstance(tools, Callable):
                 self.add(tools)
             elif isinstance(tools, list):
                 for tool in tools:
+                    if isinstance(tool, str):
+                        tool = ToolSet.tool_from_name(tool)
                     if tool.__name__ in self._func_names():
                         logging.info("Toolset.__init__: Tool %s already exists in ToolSet", tool.__name__)
                         raise ValueError(f"Tool {tool.__name__} already exists in ToolSet")
@@ -147,12 +198,41 @@ class ToolSet:
     def get(self, name: str, default=None) -> Optional[Callable]:
         return next((tool for tool in self.toolset if tool.__name__ == name), default)
 
-    def add(self, tool: Callable):
-        if tool.__name__ in self._func_names():
-            logger.warning("Tool %s already exists in ToolSet", tool.__name__)
-            raise ValueError(f"Tool {tool.__name__} already exists in ToolSet")
-        self.toolset.append(tool)
-        logger.info("Added tool %s to ToolSet", tool.__name__)
+    @overload
+    def add(self, tool: Callable): ...
+
+    @overload
+    def add(self, tools: List[Callable]): ...
+
+    @overload
+    def add(self, tool: List[str]): ...
+
+    @overload
+    def add(self, tool: str): ...
+
+    @overload
+    def add(self, tool: ToolSchema): ...
+
+    def add(self, tool: Union[Callable, List[Callable], List[str], str, ToolSchema]):
+        if isinstance(tool, list):
+            if any(isinstance(t, str) for t in tool):
+                for t in tool:
+                    self.add(ToolSet.tool_from_name(t))
+            else:
+                for t in tool:
+                    self.add(t)
+        elif isinstance(tool, Callable):
+            if tool.__name__ in self._func_names():
+                logger.warning("Tool %s already exists in ToolSet", tool.__name__)
+                # raise ValueError(f"Tool {tool.__name__} already exists in ToolSet")
+            self.toolset.append(tool)
+            logger.info("Added tool %s to ToolSet", tool.__name__)
+        elif isinstance(tool, ToolSchema):
+            self.add(ToolSet.tool_from_schema(tool))
+        elif isinstance(tool, str):
+            self.add(ToolSet.tool_from_name(tool))
+        else:
+            raise ValueError("Tool must be a type of callable or list of callables")
 
     @property
     def list(self):

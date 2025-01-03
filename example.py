@@ -3,7 +3,7 @@ import requests
 from dotenv import load_dotenv
 from pydantic_ai import RunContext
 
-from agentgenius.core import AgentGENius
+from agentgenius.main import AgentGENius
 from agentgenius.tools import ToolSet
 
 nest_asyncio.apply()  # just to use with ipykernel

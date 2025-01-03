@@ -1,8 +1,10 @@
 import json
+
 import pytest
+from pydantic_ai import RunContext
+
 from agentgenius.agents import BaseAgent
 from agentgenius.tools import ToolSet
-from pydantic_ai import RunContext
 
 
 @pytest.fixture

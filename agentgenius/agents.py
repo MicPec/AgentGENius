@@ -148,25 +148,22 @@ class BaseAgent:
         return self.agent._system_prompts[0] if self.agent._system_prompts else ""  # pylint: disable=protected-access
 
     def run_sync(self, *args, **kwargs) -> str:
-        # self._refresh_toolset()
         return self.agent.run_sync(*args, **kwargs)
 
     async def run(self, *args, **kwargs) -> str:
-        # self._refresh_toolset()
         return await self.agent.run(*args, **kwargs)
 
     async def run_stream(self, *args, **kwargs):
-        # self._refresh_toolset()
         return await self.agent.run_stream(*args, **kwargs)
 
-    async def ask_agent(self, ctx: RunContext[any], agent_name: str, question: str, deps: list[str]) -> str:
+    async def ask_agent(self, agent_name: str, question: str) -> str:
         """Ask a specific agent a question.
         He can solve tasks that you can't solve."""
         if agent := self.agent_store.get(agent_name):
-            return await agent.run(question, deps=deps)
+            return await agent.run(question)
         return f"Agent '{agent_name}' not found"
 
-    async def list_agents(self, ctx: RunContext[any]):
+    async def list_agents(self):
         """List all agents that are stored in the agent store.
         Check if any of them can solve the task."""
         return self.agent_store.list()
@@ -184,6 +181,7 @@ class AgentStore:
             raise KeyError(f"Agent {name} not found")
         return self.agents[name]
 
+    # @property
     def list(self) -> List[str]:
         return list(self.agents.keys())
 
@@ -229,7 +227,7 @@ class AgentStore:
         config.agents_path.mkdir(parents=True, exist_ok=True)  # pylint: disable=no-member
 
         result = agent.to_json()
-        with open(config.agents_path / f"{agent.name}.json", encoding="utf-8", mode="w") as f:
+        with open(config.agents_path / f"{agent.name}.json", mode="w") as f:
             f.write(result)
         return result
 

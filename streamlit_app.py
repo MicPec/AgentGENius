@@ -1,12 +1,13 @@
-from numpy import tile
-import streamlit as st
-import nest_asyncio
-from dotenv import load_dotenv
-from agentgenius.core import AgentGENius
-from agentgenius.tools import ToolSet
-from pydantic_ai import RunContext
 import json
+
+import nest_asyncio
 import pandas as pd
+import streamlit as st
+from dotenv import load_dotenv
+from pydantic_ai import RunContext
+
+from agentgenius.main import AgentGENius
+from agentgenius.tools import ToolSet
 
 # Initialize environment
 nest_asyncio.apply()
@@ -25,7 +26,7 @@ if "agent" not in st.session_state:
 
         return datetime.now().strftime(format)
 
-    tools = ToolSet(get_current_datetime)
+    tools = ToolSet()
     st.session_state.agent = AgentGENius(name="chat_agent", model="openai:gpt-4o-mini", toolset=tools)
     st.session_state.agent.agent_store.load_agents()
 
@@ -35,6 +36,7 @@ def get_agent_stats():
     agent = st.session_state.agent
     stats = {
         "Model": [agent.model],
+        "Prompt": [agent.get_system_prompt()],
         "Tools": [", ".join(tool.__name__ for tool in agent.toolset)],
         "Agents": [", ".join(agent.agent_store.agents.keys())],
     }
@@ -50,7 +52,7 @@ def display_sidebar():
     # Display stats in a transposed table for better readability
     st.sidebar.dataframe(
         stats_df.T,
-        column_config={"0": st.column_config.ListColumn("Value", width="big")},
+        column_config={"0": st.column_config.TextColumn("Value", width="big")},
         hide_index=False,
         use_container_width=True,
     )
@@ -82,27 +84,36 @@ def display_sidebar():
                 "Name": name,
                 "Model": agent.model,
                 "Prompt": agent.get_system_prompt(),
-                "Tools ": [tool for tool in agent.toolset.list],
+                "Tools": ", ".join(str(tool) for tool in agent.toolset.list),
             }
         )
 
     if agents_data:
         st.sidebar.subheader("Available Agents")
-        st.sidebar.dataframe(
-            pd.DataFrame(agents_data),
-            column_config={
-                "Name": st.column_config.TextColumn("Name", width="small", pinned=True),
-                "Model": st.column_config.TextColumn("Model", width="small"),
-                "Tools": st.column_config.ListColumn("Tools", width="small"),
-            },
-            hide_index=True,
-            use_container_width=True,
-        )
+        if agent := st.sidebar.selectbox(
+            "Select Agent", [name for name in st.session_state.agent.agent_store.agents.keys()]
+        ):
+            st.sidebar.dataframe(
+                pd.DataFrame([agent_data for agent_data in agents_data if agent_data["Name"] == agent]).transpose(),
+                column_config={
+                    "0": st.column_config.TextColumn("Value", width="medium"),
+                },
+                hide_index=False,
+                use_container_width=True,
+            )
 
 
-def response_details(messages):
-    tabs = st.tabs([f"{i+1}: {msg['kind']}" for i, msg in enumerate(messages)])
-
+def response_details(messages, usage):
+    tabs = st.tabs([f"{i+1}: {msg['kind']}" for i, msg in enumerate(messages)] + ["Usage Summary"])
+    messages.append(
+        {
+            "requests": usage.requests,
+            "request_tokens": usage.request_tokens,
+            "response_tokens": usage.response_tokens,
+            "total_tokens": usage.total_tokens,
+            "details": usage.details,
+        }
+    )
     for tab, msg in zip(tabs, messages):
         with tab:
             st.write(msg)
@@ -135,7 +146,7 @@ def display_chat():
                 st.session_state.messages.append({"role": "assistant", "content": response.data})
                 st.markdown(response.data)
                 with st.expander("See detailed response"):
-                    response_details(json.loads(response.new_messages_json()))
+                    response_details(json.loads(response.new_messages_json()), response.usage())
 
 
 def main():
