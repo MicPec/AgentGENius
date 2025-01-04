@@ -63,10 +63,8 @@ class ToolSet:
         from . import builtin_tools
 
         return [
-            name
-            for name in dir(builtin_tools)
-            if callable(getattr(builtin_tools, name)) and not name.startswith("_") and name.endswith("_tool")
-        ]
+            name for name in dir(builtin_tools) if callable(getattr(builtin_tools, name)) and not name.startswith("_")
+        ][2:]
 
     @staticmethod
     def tool_from_name(tool_name: str) -> callable:
@@ -215,16 +213,19 @@ class ToolSet:
 
     def add(self, tool: Union[Callable, List[Callable], List[str], str, ToolSchema]):
         if isinstance(tool, list):
-            if any(isinstance(t, str) for t in tool):
-                for t in tool:
-                    self.add(ToolSet.tool_from_name(t))
-            else:
-                for t in tool:
-                    self.add(t)
+            for t in tool:
+                if isinstance(t, str):
+                    t = ToolSet.tool_from_name(t)
+                if isinstance(t, callable):
+                    if t.__name__ in self._func_names():
+                        logger.warning("Tool %s already exists in ToolSet", t.__name__)
+                        raise ValueError(f"Tool {t.__name__} already exists in ToolSet")
+                    self.toolset.append(t)
+                    logger.info("Added tool %s to ToolSet", t.__name__)
         elif isinstance(tool, Callable):
             if tool.__name__ in self._func_names():
                 logger.warning("Tool %s already exists in ToolSet", tool.__name__)
-                # raise ValueError(f"Tool {tool.__name__} already exists in ToolSet")
+                raise ValueError(f"Tool {tool.__name__} already exists in ToolSet")
             self.toolset.append(tool)
             logger.info("Added tool %s to ToolSet", tool.__name__)
         elif isinstance(tool, ToolSchema):

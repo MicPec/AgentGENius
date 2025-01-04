@@ -2,14 +2,21 @@ from pydantic_ai import RunContext
 
 from .agents import AgentSchema, AgentStore, BaseAgent
 from .builtin_tools import (
-    get_all_agents_tool,
-    get_all_tools_tool,
-    get_external_tools_tool,
-    get_builtin_tools_tool,
+    get_all_agents,
+    get_all_tools,
+    get_external_tools,
+    get_builtin_tools,
+    get_datetime,
+    get_user_ip_and_location,
+    get_installed_packages,
 )
 from .config import config, prompt_lib
 from .tasks import TaskQueue, TaskSchema
 from .tools import ToolSchema, ToolSet
+
+import logfire
+
+logfire.configure(send_to_logfire="if-token-present")
 
 
 class TaskGENius(BaseAgent):
@@ -19,13 +26,15 @@ class TaskGENius(BaseAgent):
         system_prompt: str | None = config.default_agent_prompt,
         toolset: ToolSet | None = None,
     ):
-        super().__init__("task planner agent", model, system_prompt, toolset, result_type=TaskQueue)
+        super().__init__("task planner agent", model, system_prompt, toolset)
         self.task_queue: TaskQueue | None = None
-        self.toolset.add(get_all_tools_tool)
-        self.toolset.add(get_all_agents_tool)
-        # self.system_prompt(f"All available tools:  {ToolSet.list_all_tools()}")
+        self.toolset.add(get_all_tools)
+        self.toolset.add(get_all_agents)
+        self._inject_all_tools()
 
     # async def run(self, *args, **kwargs):
+    def _inject_all_tools(self) -> str:
+        return f"All tools available: {ToolSet.list_all_tools()}"
 
 
 class ToolGENius(BaseAgent):
@@ -37,7 +46,7 @@ class ToolGENius(BaseAgent):
     ):
         super().__init__("tool agent", model, system_prompt, toolset, retries=5)
         self.system_prompt(self._inject_builtin_tools)
-        self.toolset.add(get_external_tools_tool)
+        self.toolset.add(get_external_tools)
         self.toolset.add(self.init_tool)
 
     def _inject_builtin_tools(self) -> str:
@@ -71,8 +80,9 @@ class AgentGENius(BaseAgent):
         super().__init__(name, model, system_prompt, toolset)
         self.planner_agent = TaskGENius(config.default_agent_model, prompt_lib["planner_agent"])
         self.tool_agent = ToolGENius(config.default_agent_model, prompt_lib["tool_agent"])
-        self.agent_store.add(self.planner_agent)
+        # self.agent_store.add(self.planner_agent)
         self.agent_store.add(self.tool_agent)
+        self._inject_builtin_tools()
 
-    def run_system(self, task: str):
-        pass
+    def _inject_builtin_tools(self) -> str:
+        return f"Builtin tools available: {ToolSet.list_builtin_tools()}"

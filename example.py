@@ -15,19 +15,19 @@ def ask_user_tool(ctx: RunContext[str], question: str) -> str:
     return input(question + " ")
 
 
-def get_current_datetime(format_str: str = "%Y-%m-%d %H:%M:%S") -> str:
-    """Get the current datetime as a string in the specified python format."""
+# def get_current_datetime(format_str: str = "%Y-%m-%d %H:%M:%S") -> str:
+#     """Get the current datetime as a string in the specified python format."""
 
-    from datetime import datetime
+#     from datetime import datetime
 
-    return datetime.now().strftime(format_str)
+#     return datetime.now().strftime(format_str)
 
 
 tools = ToolSet(ask_user_tool)
 agent = AgentGENius(name="assistant", model="openai:gpt-4o-mini", toolset=tools)
 agent.agent_store.load_agents()
 
-agent.toolset.add(get_current_datetime)
+# agent.toolset.add(get_current_datetime)
 
 
 @agent.tool_plain
