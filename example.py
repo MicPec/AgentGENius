@@ -1,79 +1,46 @@
-import nest_asyncio
-import requests
-from dotenv import load_dotenv
-from pydantic_ai import RunContext
+from os import name
 
-from agentgenius.main import AgentGENius
+import logfire
+from dotenv import load_dotenv
+from rich import print
+
+from agentgenius import AgentDef, Task, TaskDef
+from agentgenius.builtin_tools import get_datetime, get_user_ip_and_location
+from agentgenius.tasks import TaskList
 from agentgenius.tools import ToolSet
 
-nest_asyncio.apply()  # just to use with ipykernel
 load_dotenv()
+logfire.configure(send_to_logfire="if-token-present")
+
+planner = Task(
+    task=TaskDef(name="planner", question="make a short plan how to archive this task", priority=1),
+    agent_def=AgentDef(
+        model="openai:gpt-4o",
+        name="planner",
+        system_prompt="""You are a planner. your goal is to make a step by step plan for other agents. 
+        Do not answer the user questions. Just make a very short plan how to do this. 
+        AlWAYS MAKE SURE TO ADD APPROPRIATE TOOLS TO THE PLAN. You can get the list of available tools by calling 'get_available_tools'.
+        Efficiently is a priority, so don't waste time on things that are not necessary.
+        LESS STEPS IS BETTER (up to 3 steps), so make it as short as possible.""",
+        params={
+            "result_type": TaskList,
+            "retries": 3,
+        },
+    ),
+    # toolset=ToolSet(["get_datetime", "get_user_ip_and_location", "get_installed_packages"]),
+)
 
 
-def ask_user_tool(ctx: RunContext[str], question: str) -> str:
-    """Ask the user a question"""
-    return input(question + " ")
+@planner.agent.system_prompt
+def get_available_tools():
+    """Return a list of available tools. Do not use these tools.
+    Just let the other agents to use them."""
+    tools = ToolSet([get_datetime, get_user_ip_and_location]).init(namespace=globals())
+    return f"Available tools: {', '.join(tools)}"
 
 
-# def get_current_datetime(format_str: str = "%Y-%m-%d %H:%M:%S") -> str:
-#     """Get the current datetime as a string in the specified python format."""
-
-#     from datetime import datetime
-
-#     return datetime.now().strftime(format_str)
-
-
-tools = ToolSet(ask_user_tool)
-agent = AgentGENius(name="assistant", model="openai:gpt-4o-mini", toolset=tools)
-agent.agent_store.load_agents()
-
-# agent.toolset.add(get_current_datetime)
-
-
-@agent.tool_plain
-def get_my_public_ip() -> str:
-    """Get the public IP address of the current machine using an external service."""
-    try:
-        response = requests.get("https://api.ipify.org?format=json", timeout=5)
-        if response.status_code == 200:
-            return response.json().get("ip", "")
-        else:
-            return "Unable to fetch IP"
-    except Exception as e:
-        return f"Error: {e}"
-
-
-@agent.tool
-def get_location_by_ip(ctx: RunContext[str], ip_address: str) -> dict:
-    """Get the geographical location of an IP address using an external API."""
-    try:
-        response = requests.get(f"https://ipinfo.io/{ip_address}/json", timeout=5)
-        if response.status_code == 200:
-            return response.json()
-        else:
-            return {"error": "Unable to fetch location"}
-    except Exception as e:
-        return f"Error: {e}"
-
-
-# print(agent.toolset)
-
-
-def main():
-    message_history = []
-    print(f"Agent: {agent.run_sync("Hello").data}")
-    while True:
-        user_input = input("You: ")
-
-        if user_input.lower() == "bye":
-            print("Agent: Goodbye!")
-            break
-        response = agent.run_sync(user_input, message_history=message_history)
-        message_history += response.new_messages()
-        if len(message_history) > 20:
-            message_history = message_history[-20:]
-        print(f"Agent: {response.data}")
-
-
-if __name__ == "__main__":
-    main()
+result = planner.run_sync("what time is it?")
+# result = planner.run_sync("how to get my location by IP?")
+print(result.data)
+plan = result.data[0].run_sync()
+print(plan.data)

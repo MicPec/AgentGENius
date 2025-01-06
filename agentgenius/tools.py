@@ -1,252 +1,135 @@
-import logging
-from pathlib import Path
-from typing import Callable, List, Optional, Union, overload
+from copy import deepcopy
+from dataclasses import field
+from typing import Callable, List, Sequence, Union
 
-from pydantic import BaseModel, Field
-
-from .config import config
-
-logger = logging.getLogger(__name__)
+from pydantic import ConfigDict, field_validator
+from pydantic.dataclasses import dataclass
+from pydantic_ai.tools import Tool
 
 
-class ToolSchema(BaseModel):
-    """Schema for Tool serialization/deserialization"""
+@dataclass(init=False)
+class ToolDef:
+    """
+    Represents a tool definition that encapsulates a callable function identified by its name.
+    The tool can be invoked directly and is dynamically resolved from the provided namespace.
 
-    name: str = Field(..., description="Name of the tool (function name)")
-    description: Optional[str] = Field(None, description="Tool description")
-    args: Optional[dict] = Field(None, description="Tool arguments and types")
-    return_type: Optional[str] = Field(None, description="Tool return type")
-    code: Optional[str] = Field(None, description="Tool code")
+    Args:
+        name: A string representing the name of the tool, used to retrieve the corresponding callable.
+    """
 
-    model_config = {
-        "json_schema_extra": {
-            "examples": [
-                {
-                    "name": "get_datetime",
-                    "description": "Get current datetime",
-                    "args": {"format": "str"},
-                    "return_type": "str",
-                    "code": "def get_datetime(ctx: RunContext[str], format: str = '%Y-%m-%d %H:%M:%S') -> str:\n    import datetime\n    return datetime.datetime.now().strftime(format)",
-                }
-            ]
-        }
-    }
+    name: str = field(default="", repr=True)
+    # _function: Optional[Tool] = field(default=None, repr=False, init=False)
 
-    def save_to_file(self, path: Path = config.tools_path):
-        logging.info("Saving tool to file: %s.py", self.name)
-        path.mkdir(parents=True, exist_ok=True)
-        with open(path / f"{self.name}.py", "w") as f:
-            f.write(self.code)
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    def __post_init__(self):
+        self._function = self._get_callable(namespace=globals())
+        self.__qualname__ = f"ToolDef.{self.name}"
 
-class ToolSetSchema(BaseModel):
-    """Schema for ToolSet serialization/deserialization"""
+    def _get_func(self):
+        return getattr(self, "_function", None)
 
-    toolset: List[str] = Field(default_factory=list, description="List of tool names in the toolset")
-
-    model_config = {"json_schema_extra": {"examples": [{"tools": ["ask_user_tool", "search_tool"]}]}}
-
-
-class ToolSet:
-    """A set of tools that can be passed to an agent"""
-
-    @staticmethod
-    def list_all_tools(path: Path = config.tools_path):
-        return ToolSet.list_builtin_tools() + ToolSet.list_external_tools(path)
-
-    @staticmethod
-    def list_external_tools(path: Path = config.tools_path):
-        return [f.stem for f in path.glob("*.py")]
-
-    @staticmethod
-    def list_builtin_tools():
-        from . import builtin_tools
-
-        return [
-            name for name in dir(builtin_tools) if callable(getattr(builtin_tools, name)) and not name.startswith("_")
-        ][2:]
-
-    @staticmethod
-    def tool_from_name(tool_name: str) -> callable:
-        from . import builtin_tools
-
-        logger.info("Executing tool from string: %s", tool_name)
-        if tool_name in ToolSet.list_builtin_tools():
-            return getattr(builtin_tools, tool_name)
-        if tool_name in ToolSet.list_external_tools():
-            return ToolSet.tool_from_file(tool_name)
-        raise ValueError(f"Tool {tool_name} not found")
-
-    @staticmethod
-    def tool_from_schema(tool: ToolSchema) -> callable:
-        logger.info("Executing tool from string: %s", tool.code)
-        namespace = {}
-        try:
-            tool.save_to_file(config.tools_path)
-            exec(tool.code, globals(), namespace)
-        except Exception as e:
-            logger.error(f"Error executing code: {e}")
-            return f"Error executing code: {e}"
-
-        # This will return the most recently defined function
-        return next(f for f in namespace.values() if callable(f))
-
-    @staticmethod
-    def tool_from_file(toolname: str, path: Path = config.tools_path):
-        def run_func(func_str: str) -> Union[callable, str]:
-            namespace = {}
-            try:
-                logger.info("Executing tool: %s", toolname)
-                exec(func_str, globals(), namespace)
-            except Exception as e:
-                logger.error("Error executing code: %s", str(e))
-                return f"Error executing code: {e}"
-            logger.info("Successfully executed tool: %s", toolname)
-            return next(f for f in namespace.values() if callable(f))
-
-        with open(path / f"{toolname}.py", "r") as f:
-            logger.info("Reading tool from file: %s.py", toolname)
-            return run_func(f.read())
-
-    @classmethod
-    def from_dict(cls, data: Union[List[str], Callable], namespace) -> "ToolSet":
+    def _get_callable(self, *, namespace: dict) -> Callable:
         namespace = globals() | namespace
+        result = namespace.get(self.name, None)
+        if result:
+            self._function = result
+            return result
+        else:
+            raise ValueError(f"Tool {self.name} not found in namespace")
 
-        logging.info("ToolSet.from_dict: Attempting to create toolset from data: %s", data)
-        logging.debug("Available functions in namespace: %s", [k for k in namespace.keys() if callable(namespace[k])])
+    def __call__(self):
+        return self._function()
 
-        if isinstance(data, list):
-            toolset = []
-            missing_tools = []
-            for func_name in data:
-                if func_name in namespace:
-                    tool = namespace[func_name]
-                    if callable(tool):
-                        toolset.append(tool)
-                        logger.info("ToolSet.from_dict: Added tool %s to ToolSet", tool.__name__)
-                    else:
-                        logger.error("ToolSet.from_dict: Found %s in namespace but it's not callable", func_name)
-                        raise ValueError(f"Tool {func_name} found in namespace but it's not callable")
-                else:
-                    missing_tools.append(func_name)
-                    logger.warning("ToolSet.from_dict: Tool %s not found in namespace", func_name)
+    @property
+    def __name__(self) -> str:
+        return self.name
 
-            if missing_tools:
-                try:
-                    for func_name in missing_tools:
-                        tool = ToolSet.tool_from_file(func_name)
-                        toolset.append(tool)
-                        logger.info("ToolSet.from_dict: Added tool %s to ToolSet", tool.__name__)
-                except Exception as e:
-                    logger.error("ToolSet.from_dict: Failed to create tool from file: %s", str(e))
-                # raise ValueError(f"The following tools were not found in the namespace: {missing_tools}")
 
-            return cls(toolset)
-        return cls(data)
+ToolType = Union[str, Callable, Sequence[Union[str, Callable]]]
 
+
+@dataclass(init=False)
+class ToolSet:
+    """
+    A collection of ToolDef objects, representing tools that can be dynamically resolved and invoked.
+
+    Args:
+        tools (List[ToolDef]): A list of ToolDef objects encapsulating callable functions.
+                Can be a list of strings, callables, or a combination of both.
+
+    Methods:
+        add(tool): Adds a tool to the ToolSet.
+        remove(name): Removes a tool by name from the ToolSet.
+        get(name, default, *, namespace): Retrieves a tool by name from the ToolSet.
+        all(): Returns a list of all tool names in the ToolSet.
+        init(*, namespace): Initializes tools in the ToolSet with a given namespace.
+    """
+
+    tools: List[ToolDef] = field(init=True, default_factory=list, repr=True)
+
+    @field_validator("tools", mode="plain")
     @classmethod
-    def from_json(cls, data: ToolSetSchema, namespace) -> "ToolSet":
-        result = ToolSetSchema.model_validate_json(data)
-        return cls.from_dict(result.toolset, namespace=namespace)
+    def accept_other(cls, v):
+        if isinstance(v, (list, str, Callable)):
+            return v
+        else:
+            raise ValueError(f"Tool must be a callable or a string, not {type(v)}")
 
-    def __init__(self, tools: Union[list[Callable], list[str], Callable, None] = None):
-        self.toolset = []
-        if tools:
-            if isinstance(tools, Callable):
-                self.add(tools)
-            elif isinstance(tools, list):
-                for tool in tools:
-                    if isinstance(tool, str):
-                        tool = ToolSet.tool_from_name(tool)
-                    if tool.__name__ in self._func_names():
-                        logging.info("Toolset.__init__: Tool %s already exists in ToolSet", tool.__name__)
-                        raise ValueError(f"Tool {tool.__name__} already exists in ToolSet")
-                    self.add(tool)
-                    logger.info("Toolset.__init__: Added tool %s to ToolSet", tool.__name__)
-            else:
-                logging.error("Toolset.__init__:Tools must be a list of callable or a single callable.")
-                raise ValueError("Tools must be a list of callable or a single callable.")
+    def __post_init__(self):
+        tools = deepcopy(self.tools)
+        self.tools = []
+        for tool in tools:
+            self.add(tool)
+
+    def add(self, tool: ToolType) -> None:
+        if isinstance(tool, Callable):
+            t = ToolDef(name=tool.__name__)
+            self.tools.append(t)
+        elif isinstance(tool, str):
+            t = ToolDef(name=tool)
+            self.tools.append(t)
+        elif isinstance(tool, list):
+            for t in tool:
+                self.add(t)
+        else:
+            raise ValueError(f"Tool must be a callable or a string, not {type(tool)}")
+
+    def remove(self, name: str) -> Tool:
+        tool = self.get(name)
+        if tool:
+            self.tools.remove(tool)
+        return tool
+
+    def get(self, name: str, default=None, *, namespace: dict = globals()):
+        return next((tool._get_callable(namespace=namespace) for tool in self.tools if tool.name == name), default)
 
     def __iter__(self):
-        return iter(self.toolset)
+        return iter(self.tools)
+
+    def __getitem__(self, item):
+        return self.tools[item]._get_callable(namespace=globals())
+
+    def __len__(self):
+        return len(self.tools)
 
     def __contains__(self, value):
         if isinstance(value, str):
             return self.get(value) is not None
         elif isinstance(value, Callable):
-            return value in self.toolset
+            return value in self.tools
         else:
-            raise ValueError("value must be a type of string or callable")
+            raise ValueError(f"value must be a type of string or callable, not {type(value)}")
 
-    def __getitem__(self, name):
-        return self.get(name)
+    def __str__(self):
+        return str(self.tools)
 
-    def __len__(self):
-        return len(self.toolset)
+    def all(self):
+        return [tool.name for tool in self.tools]
 
-    def __all__(self):
-        return self.toolset
-
-    def __repr__(self):
-        return f"ToolSet({self._func_names()})"
-
-    def _func_names(self) -> List[str]:
-        return [tool.__name__ for tool in self.toolset]
-
-    def get(self, name: str, default=None) -> Optional[Callable]:
-        return next((tool for tool in self.toolset if tool.__name__ == name), default)
-
-    @overload
-    def add(self, tool: Callable): ...
-
-    @overload
-    def add(self, tools: List[Callable]): ...
-
-    @overload
-    def add(self, tool: List[str]): ...
-
-    @overload
-    def add(self, tool: str): ...
-
-    @overload
-    def add(self, tool: ToolSchema): ...
-
-    def add(self, tool: Union[Callable, List[Callable], List[str], str, ToolSchema]):
-        if isinstance(tool, list):
-            for t in tool:
-                if isinstance(t, str):
-                    t = ToolSet.tool_from_name(t)
-                if isinstance(t, callable):
-                    if t.__name__ in self._func_names():
-                        logger.warning("Tool %s already exists in ToolSet", t.__name__)
-                        raise ValueError(f"Tool {t.__name__} already exists in ToolSet")
-                    self.toolset.append(t)
-                    logger.info("Added tool %s to ToolSet", t.__name__)
-        elif isinstance(tool, Callable):
-            if tool.__name__ in self._func_names():
-                logger.warning("Tool %s already exists in ToolSet", tool.__name__)
-                raise ValueError(f"Tool {tool.__name__} already exists in ToolSet")
-            self.toolset.append(tool)
-            logger.info("Added tool %s to ToolSet", tool.__name__)
-        elif isinstance(tool, ToolSchema):
-            self.add(ToolSet.tool_from_schema(tool))
-        elif isinstance(tool, str):
-            self.add(ToolSet.tool_from_name(tool))
-        else:
-            raise ValueError("Tool must be a type of callable or list of callables")
-
-    @property
-    def list(self):
-        return self._func_names()
-
-    def remove(self, tool_name: str):
-        if self.get(tool_name) is None:
-            raise ValueError(f"Tool {tool_name} not found in ToolSet")
-        self.toolset.remove(self.get(tool_name))
-        logger.info("Removed tool %s from ToolSet", tool_name)
-
-    def to_dict(self):
-        return ToolSetSchema(toolset=self._func_names()).model_dump()["toolset"]
-
-    def to_json(self):
-        return ToolSetSchema(toolset=self._func_names()).model_dump_json()
+    # TODO: fix namespace injection
+    def init(self, *, namespace: dict = globals()):
+        namespace = globals() | namespace
+        # return [(tool._get_callable(namespace=namespace).__name__) for tool in self.tools]
+        for tool in self.tools:
+            tool._get_callable(namespace=namespace)

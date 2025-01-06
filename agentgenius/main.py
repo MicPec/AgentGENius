@@ -59,14 +59,14 @@ class ToolGENius(BaseAgent):
     # async def run(self, task: str, **kwargs):
     #     return await self.agent.run(task, **kwargs)
 
-    def init_tool(self, tool: ToolSchema) -> str:
+    def init_tool(self, tool: ToolSchema) -> None:
         """Add a tool to the toolset and return its name.
         Then you can call this tool directly from toolset by its name (returned by this function)."""
         # print(f"{tool=}")
-        exec_tool = ToolSet.tool_from_schema(tool)
+        exec_tool = ToolSet.tool_from_schema(tool, globals())
+        print(f"{exec_tool=}")
         self.toolset.add(exec_tool)
         self._refresh_toolset()
-        return exec_tool.__name__
 
 
 class AgentGENius(BaseAgent):
