@@ -1,5 +1,5 @@
 from dataclasses import field
-from typing import Any, Dict
+from typing import Any, Dict, Literal
 
 import logfire
 from dotenv import load_dotenv
@@ -8,6 +8,11 @@ from pydantic_ai.models import KnownModelName
 
 load_dotenv()
 
+
+KnownModelName = Literal[
+    "openai:gpt-4o",
+    "openai:gpt-4o-mini",
+]
 
 AgentParams = Dict[str, Any]
 

@@ -48,19 +48,17 @@ class Task:
             **self.agent_def.params if self.agent_def.params else {},
         )
 
-    async def run(self, question):
-        if self.task.question and question:
-            query = f"{self.task.question}: {question}"
-        else:
-            query = self.task.question
-        return await self.agent.run(query)
+    async def run(self, *args, **kwargs):
+        question = self.task.question
+        if self.task.question and args:
+            question = f"{self.task.question}: {args[0]}"
+        return await self.agent.run(question, **kwargs)
 
-    def run_sync(self, question):
-        if self.task.question and question:
-            query = f"{self.task.question}: {question}"
-        else:
-            query = self.task.question
-        return self.agent.run_sync(query)
+    def run_sync(self, *args, **kwargs):
+        question = self.task.question
+        if self.task.question and args:
+            question = f"{self.task.question}: {args[0]}"
+        return self.agent.run_sync(question, **kwargs)
 
 
 @dataclass(init=False)

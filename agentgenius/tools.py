@@ -1,3 +1,4 @@
+import inspect
 from copy import deepcopy
 from dataclasses import field
 from typing import Callable, List, Sequence, Union
@@ -11,32 +12,44 @@ from pydantic_ai.tools import Tool
 class ToolDef:
     """
     Represents a tool definition that encapsulates a callable function identified by its name.
-    The tool can be invoked directly and is dynamically resolved from the provided namespace.
+    The tool can be invoked directly and is dynamically resolved from the global namespace.
 
     Args:
         name: A string representing the name of the tool, used to retrieve the corresponding callable.
     """
 
     name: str = field(default="", repr=True)
+
     # _function: Optional[Tool] = field(default=None, repr=False, init=False)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def __post_init__(self):
-        self._function = self._get_callable(namespace=globals())
+        if "functions." in self.name:
+            self.name = self.name.split("functions.")[1]
+        frame = self._search_frame()
+        self._function = self._get_callable(namespace=frame)
         self.__qualname__ = f"ToolDef.{self.name}"
 
-    def _get_func(self):
-        return getattr(self, "_function", None)
+    def _search_frame(self):
+        frame = inspect.currentframe().f_back
+        while frame.f_globals.get(self.name) is None:
+            frame = frame.f_back
+            if frame is None:
+                raise ValueError(f"Tool '{self.name}' not found")
+        return frame.f_globals
+
+    @property
+    def function(self):
+        return self._function
 
     def _get_callable(self, *, namespace: dict) -> Callable:
-        namespace = globals() | namespace
         result = namespace.get(self.name, None)
         if result:
             self._function = result
             return result
         else:
-            raise ValueError(f"Tool {self.name} not found in namespace")
+            raise ValueError(f"Tool '{self.name}' not found ")
 
     def __call__(self):
         return self._function()
@@ -61,9 +74,8 @@ class ToolSet:
     Methods:
         add(tool): Adds a tool to the ToolSet.
         remove(name): Removes a tool by name from the ToolSet.
-        get(name, default, *, namespace): Retrieves a tool by name from the ToolSet.
+        get(name, default): Retrieves a tool by name from the ToolSet.
         all(): Returns a list of all tool names in the ToolSet.
-        init(*, namespace): Initializes tools in the ToolSet with a given namespace.
     """
 
     tools: List[ToolDef] = field(init=True, default_factory=list, repr=True)
@@ -101,14 +113,14 @@ class ToolSet:
             self.tools.remove(tool)
         return tool
 
-    def get(self, name: str, default=None, *, namespace: dict = globals()):
-        return next((tool._get_callable(namespace=namespace) for tool in self.tools if tool.name == name), default)
+    def get(self, name: str, default=None):
+        return next((tool.function for tool in self.tools if tool.name == name), default)
 
     def __iter__(self):
         return iter(self.tools)
 
     def __getitem__(self, item):
-        return self.tools[item]._get_callable(namespace=globals())
+        return self.tools[item].function
 
     def __len__(self):
         return len(self.tools)
@@ -126,10 +138,3 @@ class ToolSet:
 
     def all(self):
         return [tool.name for tool in self.tools]
-
-    # TODO: fix namespace injection
-    def init(self, *, namespace: dict = globals()):
-        namespace = globals() | namespace
-        # return [(tool._get_callable(namespace=namespace).__name__) for tool in self.tools]
-        for tool in self.tools:
-            tool._get_callable(namespace=namespace)
