@@ -32,21 +32,25 @@ def get_datetime(format: str = "%Y-%m-%d %H:%M:%S") -> str:
     return datetime.now().strftime(format)
 
 
-def get_user_ip_and_location() -> str:
-    """Get the public IP address and location of the current machine using an external service."""
+def get_user_ip() -> str:
+    """Get the public IP address of the current machine using an external service."""
     import requests
 
     try:
-        response = requests.get("https://ipinfo.io")
-        return response.text
+        response = requests.get("https://ifconfig.me")
+        return response.text.strip()
     except requests.RequestException as e:
         return f"Error: {str(e)}"
 
 
-def get_installed_packages() -> str:
-    """Get a list of all installed Python packages."""
-    import pkg_resources
+def get_location_by_ip(ip_address: str) -> str:
+    """Get the location (city, region, country, coordinates) of the given IP address."""
+    import requests
 
-    installed_packages = pkg_resources.working_set
-    sorted_packages = sorted([f"{i.key}" for i in installed_packages])
-    return ", ".join(sorted_packages)
+    url = f"https://apip.cc/api-json/{ip_address}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        location_data = response.text.strip()
+        return location_data
+    else:
+        return "Error: Unable to retrieve location data"

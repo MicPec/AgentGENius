@@ -1,11 +1,9 @@
-from os import name
-
 import logfire
 from dotenv import load_dotenv
 from rich import print
 
 from agentgenius import AgentDef, Task, TaskDef
-from agentgenius.builtin_tools import get_datetime, get_user_ip_and_location
+from agentgenius.builtin_tools import get_datetime, get_location_by_ip, get_user_ip
 from agentgenius.tasks import TaskList
 from agentgenius.tools import ToolSet
 
@@ -23,11 +21,11 @@ planner = Task(
         Efficiently is a priority, so don't waste time on things that are not necessary.
         LESS STEPS IS BETTER (up to 3 steps), so make it as short as possible.""",
         params={
-            "result_type": TaskList,
-            "retries": 3,
+            "result_type": list[Task],
+            "retries": 5,
         },
     ),
-    # toolset=ToolSet(["get_datetime", "get_user_ip_and_location", "get_installed_packages"]),
+    # toolset=ToolSet(["get_location_by_ip"]),
 )
 
 
@@ -35,12 +33,14 @@ planner = Task(
 def get_available_tools():
     """Return a list of available tools. Do not use these tools.
     Just let the other agents to use them."""
-    tools = ToolSet([get_datetime, get_user_ip_and_location]).init(namespace=globals())
-    return f"Available tools: {', '.join(tools)}"
+    tools = ToolSet([get_datetime, get_user_ip, get_location_by_ip])
+    return f"Available tools: {', '.join(tools.all())}"
 
 
-result = planner.run_sync("what time is it?")
-# result = planner.run_sync("how to get my location by IP?")
+# result = planner.run_sync("what time is it?")
+result = planner.run_sync("how to get my location by IP?")
 print(result.data)
-plan = result.data[0].run_sync()
-print(plan.data)
+for task in result.data:
+    ctx = []
+    ctx.append(task.run_sync(deps=ctx).data)
+    print(ctx)
