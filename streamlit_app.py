@@ -6,7 +6,8 @@ import streamlit as st
 from dotenv import load_dotenv
 from pydantic_ai import RunContext
 
-from agentgenius.main import AgentGENius
+from agentgenius import AgentDef, Task, TaskDef
+from agentgenius.builtin_tools import get_datetime, get_location_by_ip, get_user_ip
 from agentgenius.tools import ToolSet
 
 # Initialize environment
@@ -18,37 +19,50 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "message_history" not in st.session_state:
     st.session_state.message_history = []
-if "agent" not in st.session_state:
-    # Create basic tools
-    def get_current_datetime(format: str = "%Y-%m-%d %H:%M:%S") -> str:
-        """Get the current datetime as a string in the specified python format."""
-        from datetime import datetime
+if "agent" in st.session_state:
+    del st.session_state.agent
 
-        return datetime.now().strftime(format)
-
-    tools = ToolSet()
-    st.session_state.agent = AgentGENius(name="chat_agent", model="openai:gpt-4o-mini", toolset=tools)
-    st.session_state.agent.agent_store.load_agents()
+if "planner" not in st.session_state:
+    # Define a planner task
+    planner_task = Task(
+        task=TaskDef(name="planner", question="make a short plan how to archive this task", priority=1),
+        agent_def=AgentDef(
+            model="openai:gpt-4o",
+            name="planner",
+            system_prompt="""You are a planner. your goal is to make a step by step plan for other agents. 
+            Do not answer the user questions. Just make a very short plan how to do this. 
+            AlWAYS MAKE SURE TO ADD APPROPRIATE TOOLS TO THE PLAN. You can get the list of available tools by calling 'get_available_tools'.
+            Efficiently is a priority, so don't waste time on things that are not necessary.
+            LESS STEPS IS BETTER (up to 3 steps), so make it as short as possible.
+            Tell an agent to use the tools if available. Use the users language""",
+            params={
+                "result_type": Task,
+                "retries": 5,
+            },
+        ),
+        toolset=ToolSet([get_datetime, get_user_ip, get_location_by_ip]),
+    )
+    st.session_state.planner = planner_task
 
 
 def get_agent_stats():
-    """Get current agent statistics"""
-    agent = st.session_state.agent
+    """Get current planner task statistics"""
+    planner = st.session_state.planner
     stats = {
-        "Model": [agent.model],
-        "Prompt": [agent.get_system_prompt()],
-        "Tools": [", ".join(tool.__name__ for tool in agent.toolset)],
-        "Agents": [", ".join(agent.agent_store.agents.keys())],
+        "Task Name": [planner.task.name],
+        "Question": [planner.task.question],
+        "Priority": [planner.task.priority],
+        "Tools": [", ".join(tool.__name__ for tool in planner.toolset)],
     }
     return pd.DataFrame(stats)
 
 
 def display_sidebar():
-    """Display agent statistics in sidebar"""
+    """Display planner task statistics in sidebar"""
     st.sidebar.title("🤖 Statistics")
     stats_df = get_agent_stats()
 
-    st.sidebar.subheader("Agent Statistics")
+    st.sidebar.subheader("Planner Task Statistics")
     # Display stats in a transposed table for better readability
     st.sidebar.dataframe(
         stats_df.T,
@@ -61,9 +75,9 @@ def display_sidebar():
     tools_data = [
         {
             "Tool": tool.__name__,
-            "Description": tool.__doc__.replace("\n", " ").replace("    ", "") or "No description available",
+            "Description": tool.function.__doc__.replace("\n", " ").replace("    ", "") or "No description available",
         }
-        for tool in st.session_state.agent.toolset
+        for tool in st.session_state.planner.toolset
     ]
     st.sidebar.subheader("Available Tools")
     st.sidebar.dataframe(
@@ -75,32 +89,6 @@ def display_sidebar():
         hide_index=True,
         use_container_width=True,
     )
-
-    # Display available agents in a separate table
-    agents_data = []
-    for name, agent in st.session_state.agent.agent_store.agents.items():
-        agents_data.append(
-            {
-                "Name": name,
-                "Model": agent.model,
-                "Prompt": agent.get_system_prompt(),
-                "Tools": ", ".join(str(tool) for tool in agent.toolset.list),
-            }
-        )
-
-    if agents_data:
-        st.sidebar.subheader("Available Agents")
-        if agent := st.sidebar.selectbox(
-            "Select Agent", [name for name in st.session_state.agent.agent_store.agents.keys()]
-        ):
-            st.sidebar.dataframe(
-                pd.DataFrame([agent_data for agent_data in agents_data if agent_data["Name"] == agent]).transpose(),
-                column_config={
-                    "0": st.column_config.TextColumn("Value", width="medium"),
-                },
-                hide_index=False,
-                use_container_width=True,
-            )
 
 
 def response_details(messages, usage):
@@ -138,7 +126,7 @@ def display_chat():
         # Get agent response
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                response = st.session_state.agent.run_sync(prompt, message_history=st.session_state.message_history)
+                response = st.session_state.planner.run_sync(prompt, message_history=st.session_state.message_history)
                 st.session_state.message_history += response.new_messages()
                 if len(st.session_state.message_history) > 20:
                     st.session_state.message_history = st.session_state.message_history[-20:]
@@ -147,6 +135,21 @@ def display_chat():
                 st.markdown(response.data)
                 with st.expander("See detailed response"):
                     response_details(json.loads(response.new_messages_json()), response.usage())
+
+
+def display_planner():
+    """Display planner interface"""
+    st.title("AgentGENius Planner")
+    st.write(st.session_state.messages)
+    if st.button("Run Planner"):
+        if st.session_state.messages:
+            last_user_message = st.session_state.messages[-2]["content"]
+        else:
+            last_user_message = "Hello"
+        result = st.session_state.planner.run_sync(last_user_message)
+        result_data = result.data
+        st.write(result_data)
+        st.write(result_data.run_sync().data)
 
 
 def main():
@@ -158,6 +161,7 @@ def main():
 
     display_sidebar()
     display_chat()
+    display_planner()
 
 
 if __name__ == "__main__":

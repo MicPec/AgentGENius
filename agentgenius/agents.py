@@ -26,6 +26,8 @@ class AgentDef:
         name (str): The name of the agent.
         system_prompt (str): The system prompt for the agent.
         params (AgentParams, optional): The parameters for the agent. Defaults to {}.
+            Possible params:
+            result_type: type[ResultData] = str,
             deps_type: type[AgentDeps] = NoneType,
             model_settings: ModelSettings | None = None,
             retries: int = 1,

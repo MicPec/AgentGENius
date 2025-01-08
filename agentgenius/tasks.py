@@ -2,8 +2,9 @@ from dataclasses import field
 from typing import Optional
 
 from pydantic.dataclasses import dataclass
-from pydantic_ai import Agent
+from pydantic_ai import Agent, Tool
 
+from agentgenius import tools
 from agentgenius.agents import AgentDef
 from agentgenius.tools import ToolSet
 
@@ -44,9 +45,16 @@ class Task:
             model=self.agent_def.model,
             name=self.agent_def.name,
             system_prompt=self.agent_def.system_prompt,
-            tools=self.toolset,
+            # tools=[Tool(tool) for tool in self.toolset],
+            tools=self._prepare_tools(self.toolset),
             **self.agent_def.params if self.agent_def.params else {},
         )
+
+    def _prepare_tools(self, t: list) -> list[Tool]:
+        result = []
+        for tool in t:
+            result.append(Tool(tool.function))
+        return result
 
     async def run(self, *args, **kwargs):
         question = self.task.question

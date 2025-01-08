@@ -29,7 +29,7 @@ class ToolDef:
             self.name = self.name.split("functions.")[1]
         frame = self._search_frame()
         self._function = self._get_callable(namespace=frame)
-        self.__qualname__ = f"ToolDef.{self.name}"
+        self.__qualname__ = self._function.__qualname__
 
     def _search_frame(self):
         frame = inspect.currentframe().f_back
