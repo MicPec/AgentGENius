@@ -1,6 +1,7 @@
 from dataclasses import field
 from typing import Optional
 
+from pydantic import ValidationInfo, field_validator
 from pydantic.dataclasses import dataclass
 from pydantic_ai import Agent, Tool
 
@@ -11,7 +12,18 @@ from agentgenius.tools import ToolSet
 
 @dataclass(init=False)
 class TaskDef:
-    """A task definition with associated agent and toolset."""
+    """A task definition with associated agent and toolset.
+
+    Attributes:
+        name (str): The name of the task.
+        question (str): The question to ask the agent.
+        priority (int): The priority of the task, lower values are executed first.
+        agent (Optional[AgentDef]): The agent to use for running the task, optional.
+        toolset (Optional[ToolSet]): The toolset to use for running the task, optional.
+
+    Note:
+        The `agent` and `toolset` attributes are optional and can be omitted and set during task creation.
+    """
 
     name: str
     question: str
@@ -37,10 +49,18 @@ class Task:
 
     agent: Agent = field(init=False, repr=False)
     task: TaskDef
-    agent_def: AgentDef
+    agent_def: AgentDef = None
     toolset: ToolSet = field(default_factory=list, init=True, repr=True)
 
     def __post_init__(self):
+        if self.agent_def is None and self.task.agent is not None:
+            # if agent_def is not provided, use the agent definition from the task_def
+            self.agent_def = self.task.agent
+
+        if self.toolset == [] and self.task.toolset is not None:
+            # if toolset is not provided, use the toolset from the task_def
+            self.toolset = self.task.toolset
+
         self.agent = Agent(
             model=self.agent_def.model,
             name=self.agent_def.name,
