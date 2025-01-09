@@ -7,7 +7,7 @@ from pydantic_ai import Agent, Tool
 
 from agentgenius import tools
 from agentgenius.agents import AgentDef
-from agentgenius.tools import ToolSet
+from agentgenius.tools import ToolDef, ToolSet
 
 
 @dataclass(init=False)
@@ -48,25 +48,25 @@ class Task:
     """
 
     agent: Agent = field(init=False, repr=False)
-    task: TaskDef
+    task_def: TaskDef
     agent_def: AgentDef = None
     toolset: ToolSet = field(default_factory=list, init=True, repr=True)
 
     def __post_init__(self):
-        if self.agent_def is None and self.task.agent is not None:
+        if self.agent_def is None and self.task_def.agent is not None:
             # if agent_def is not provided, use the agent definition from the task_def
-            self.agent_def = self.task.agent
+            self.agent_def = self.task_def.agent
 
-        if self.toolset == [] and self.task.toolset is not None:
+        if self.toolset == [] and self.task_def.toolset is not None:
             # if toolset is not provided, use the toolset from the task_def
-            self.toolset = self.task.toolset
+            self.toolset = self.task_def.toolset
 
         self.agent = Agent(
             model=self.agent_def.model,
             name=self.agent_def.name,
             system_prompt=self.agent_def.system_prompt,
-            # tools=[Tool(tool) for tool in self.toolset],
-            tools=self._prepare_tools(self.toolset),
+            # tools=[Tool(tool.function) for tool in self.toolset],
+            tools=self._prepare_tools(self.toolset),  # Done this way for debugging
             **self.agent_def.params if self.agent_def.params else {},
         )
 
@@ -76,16 +76,25 @@ class Task:
             result.append(Tool(tool.function))
         return result
 
+    def register_tool(self, tool: ToolDef):
+        """Registers a tool to the task's agent dynamically."""
+        self.agent._register_tool(Tool(tool.function))
+
+    def register_toolset(self, toolset: ToolSet):
+        """Registers toolset to the task's agent dynamically."""
+        for tool in toolset:
+            self.register_tool(tool)
+
     async def run(self, *args, **kwargs):
-        question = self.task.question
-        if self.task.question and args:
-            question = f"{self.task.question}: {args[0]}"
+        question = self.task_def.question
+        if self.task_def.question and args:
+            question = f"{self.task_def.question}: {args[0]}"
         return await self.agent.run(question, **kwargs)
 
     def run_sync(self, *args, **kwargs):
-        question = self.task.question
-        if self.task.question and args:
-            question = f"{self.task.question}: {args[0]}"
+        question = self.task_def.question
+        if self.task_def.question and args:
+            question = f"{self.task_def.question}: {args[0]}"
         return self.agent.run_sync(question, **kwargs)
 
 

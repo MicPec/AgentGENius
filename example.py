@@ -1,5 +1,6 @@
 import logfire
 from dotenv import load_dotenv
+from pydantic_ai import ModelRetry, RunContext, Tool
 from rich import print
 
 from agentgenius import AgentDef, Task, TaskDef
@@ -13,6 +14,7 @@ logfire.configure(send_to_logfire="if-token-present")
 planner = Task(
     task=TaskDef(name="planner", question="make a short plan how to archive this task", priority=1),
     agent_def=AgentDef(
+        # model="openai:gpt-4o",
         model="openai:gpt-4o",
         name="planner",
         system_prompt="""You are a planner. your goal is to make a step by step plan for other agents. 
@@ -23,7 +25,7 @@ planner = Task(
         LESS STEPS IS BETTER (up to 3 steps), so make it as short as possible.
         Tell an agent to use the tools if available. ALWAYS USE THE USER'S LANGUAGE""",
         params={
-            "result_type": Task,
+            "result_type": list[Task],  # Task,
             "retries": 5,
         },
     ),
@@ -31,23 +33,33 @@ planner = Task(
 )
 
 
-# FIXME: agent try to use those tools for some reason
 @planner.agent.system_prompt
 def get_available_tools():
-    """Return a list of available tool names. Do not use these tools.
-    Just pass them and let the other agents to use them."""
-    tools = ["get_datetime", "get_user_ip", "get_location_by_ip"]
-    return f"Available tools: {', '.join(tools)}"
+    """Return a list of available tool names. DO NOT CALL THESE TOOLS.
+    Just pass them to the other agents and let them to use them."""
+    toolset = ToolSet([get_datetime, get_user_ip, get_location_by_ip])
+    planner.register_toolset(toolset)
+    return f"Available tools: {', '.join(toolset.all())}"
+
+
+# @planner.agent.result_validator
+# def validate_result(result: Task):
+#     if result.agent_def is None:
+#         raise ModelRetry(f"Agent is not defined in {result}")
+#     if result.toolset == []:
+#         raise ModelRetry(f"Toolset is not defined in {result}")
+#     return result
 
 
 # result = planner.run_sync("what time is it at my location?")
 # result = planner.run_sync("how to get my location by IP?")
 result = planner.run_sync("Jaka jest moja lokacja i godzina?")
-print(result.data)
-task = result.data
-print(task.run_sync().data)
 
-# for task in result.data:
-#     ctx = []
-#     ctx.append(task.run_sync(deps=ctx).data)
-#     print(ctx)
+print(result.data)
+# task = result.data
+# print(task.run_sync().data)
+
+for task in result.data:
+    ctx = []
+    ctx.append(task.run_sync(deps=ctx).data)
+    print(ctx)

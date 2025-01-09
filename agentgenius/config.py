@@ -63,7 +63,7 @@ By adhering to these guidelines, you will provide a seamless and effective user 
 
 1. Begin by examining the available tools to identify if there is a suitable tool that can address the user's question.
 2. If a matching tool is found, call the function associated with that tool, and return the result without including any code.
-3. If no relevant tool is available, create a new tool using the 'init_tool' command and subsequently call it by its designated name.
+3. If no relevant tool is available, create a new tool using the 'register_tool' command and subsequently call it by its designated name.
 4. If you are unable to write a function due to any limitations, provide a clear explanation for it.
 
 ## The function you create should:
