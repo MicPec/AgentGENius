@@ -1,63 +1,122 @@
 import json
+from typing import List, Optional
 
 import pytest
-from pydantic_ai import RunContext
+from pydantic import ValidationError
+from pydantic_ai.models import KnownModelName
 
-from agentgenius.agents import BaseAgent
+
+from agentgenius.agents import AgentDef, AgentParams
 from agentgenius.tools import ToolSet
 
 
 @pytest.fixture
-def mock_tool():
-    def tool(ctx: RunContext[str], question: str) -> str:
-        """Mock tool that returns a fixed response"""
-        return "mock response"
-
-    return tool
+def basic_agent_params():
+    return AgentParams(
+        result_type=str,
+        retries=2,
+    )
 
 
 @pytest.fixture
-def agent(mock_tool):
-    tools = ToolSet(mock_tool)
-    result = BaseAgent(name="test", model="test", system_prompt="You are a helpful assistant.", toolset=tools)
-    yield result
-    result = None
+def basic_agent_def(basic_agent_params):
+    return AgentDef(
+        model="openai:gpt-4o",
+        name="TestAgent",
+        system_prompt="You are a test assistant.",
+        params=basic_agent_params,
+    )
 
 
-def test_agent_creation(agent):
-    """Test that agent is created with correct attributes"""
-    assert agent.model == "test"
-    assert agent.get_system_prompt() == "You are a helpful assistant."
-    assert isinstance(agent.toolset, ToolSet)
+class TestAgentParams:
+    def test_create_basic_params(self):
+        """Test creating basic AgentParams with minimal required fields"""
+        params = AgentParams(result_type=str)
+        assert params.result_type is str
+
+    def test_create_full_params(self):
+        """Test creating AgentParams with all fields"""
+        params = AgentParams(
+            result_type=str,
+            deps_type=int,
+            retries=5,
+            result_tool_name="custom_result",
+            result_tool_description="Custom result tool",
+            result_retries=2,
+            defer_model_check=True,
+            end_strategy="exhaustive",
+        )
+        assert params.result_type is str
+        assert params.deps_type is int
+        assert params.retries == 5
+        assert params.result_tool_name == "custom_result"
+        assert params.result_tool_description == "Custom result tool"
+        assert params.result_retries == 2
+        assert params.defer_model_check is True
+        assert params.end_strategy == "exhaustive"
+
+    def test_invalid_end_strategy(self):
+        """Test that invalid end_strategy raises ValidationError"""
+        with pytest.raises(ValidationError):
+            AgentParams(result_type=str, end_strategy="invalid")
+
+    def test_serialization(self, basic_agent_params):
+        """Test JSON serialization and deserialization"""
+        json_str = basic_agent_params.model_dump_json()
+        data = json.loads(json_str)
+
+        # Check serialized data
+        assert data["result_type"] == "str"
+        assert data["retries"] == 2
+
+        # Test deserialization
+        params2 = AgentParams.model_validate_json(json_str)
+        assert params2.result_type is str
+        assert params2.retries == 2
 
 
-def test_agent_run_sync(agent):
-    """Test synchronous run method"""
-    result = agent.run_sync("test question")
-    assert result is not None
+class TestAgentDef:
+    def test_create_basic_agent(self, basic_agent_def):
+        """Test creating basic AgentDef with minimal required fields"""
+        assert basic_agent_def.model == "openai:gpt-4o"
+        assert basic_agent_def.name == "TestAgent"
+        assert basic_agent_def.system_prompt == "You are a test assistant."
+        assert isinstance(basic_agent_def.params, AgentParams)
 
+    def test_create_agent_without_params(self):
+        """Test creating AgentDef without params"""
+        agent = AgentDef(model="openai:gpt-4o", name="TestAgent", system_prompt="Test prompt")
+        assert agent.params is None
 
-def test_agent_serialization(agent):
-    """Test JSON serialization/deserialization"""
-    json_str = agent.to_json()
-    data = json.loads(json_str)
+    def test_invalid_model(self):
+        """Test that invalid model raises ValidationError"""
+        with pytest.raises(ValidationError):
+            AgentDef(model="invalid:model", name="TestAgent", system_prompt="Test prompt")
 
-    # Check serialized data
-    assert data["model"] == "test"
-    assert data["system_prompt"] == "You are a helpful assistant."
-    assert isinstance(data["toolset"], list)
+    def test_serialization(self, basic_agent_def):
+        """Test JSON serialization and deserialization"""
+        json_str = basic_agent_def.model_dump_json()
+        data = json.loads(json_str)
 
-    # Test deserialization
-    namespace = {"tool": agent.toolset.toolset[0]}  # Pass the original tool in namespace
-    agent2 = BaseAgent.from_json(json_str, namespace=namespace)
+        # Check serialized data
+        assert data["model"] == "openai:gpt-4o"
+        assert data["name"] == "TestAgent"
+        assert data["system_prompt"] == "You are a test assistant."
+        assert "params" in data
 
-    assert agent2.model == agent.model
-    assert agent2.get_system_prompt() == agent.get_system_prompt()
-    assert isinstance(agent2.toolset, ToolSet)
+        # Test deserialization
+        agent2 = AgentDef.model_validate_json(json_str)
+        assert agent2.model == basic_agent_def.model
+        assert agent2.name == basic_agent_def.name
+        assert agent2.system_prompt == basic_agent_def.system_prompt
+        assert isinstance(agent2.params, AgentParams)
 
+    def test_get_system_prompt(self, basic_agent_def):
+        """Test getting system prompt"""
+        assert basic_agent_def.system_prompt == "You are a test assistant."
 
-@pytest.mark.asyncio
-async def test_agent_run_async(agent):
-    """Test asynchronous run method"""
-    result = await agent.run("test question")
-    assert result is not None
+    @pytest.mark.parametrize("model", ["test", "openai:gpt-4o-mini"])
+    def test_valid_models(self, model):
+        """Test all valid model options"""
+        agent = AgentDef(model=model, name="TestAgent", system_prompt="Test prompt")
+        assert agent.model == model
