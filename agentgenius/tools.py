@@ -1,15 +1,15 @@
-import inspect
 from copy import deepcopy
 from dataclasses import field
-from typing import Callable, List, Sequence, Union
+from typing import Callable, List, Optional, Sequence, Union
 
-from pydantic import ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.dataclasses import dataclass
 from pydantic_ai.tools import Tool
 
+from agentgenius.utils import custom_type_encoder, search_frame
 
-@dataclass(init=False)
-class ToolDef:
+
+class ToolDef(BaseModel):
     """
     Represents a tool definition that encapsulates a callable function identified by its name.
     The tool can be invoked directly and is dynamically resolved from the global namespace.
@@ -19,25 +19,23 @@ class ToolDef:
     """
 
     name: str = field(default="", repr=True)
-
+    # code: Optional[str] = field(default=None, repr=True)
     # _function: Optional[Tool] = field(default=None, repr=False, init=False)
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        json_encoders={type: custom_type_encoder},
+        # defer_build=True,
+    )
 
-    def __post_init__(self):
+    def __init__(self, name: str):
+        super().__init__(name=name)
+
         if "functions." in self.name:
             self.name = self.name.split("functions.")[1]
-        frame = self._search_frame()
+        frame = search_frame(self.name)
         self._function = self._get_callable(namespace=frame)
-        self.__qualname__ = self._function.__qualname__
-
-    def _search_frame(self):
-        frame = inspect.currentframe().f_back
-        while frame.f_globals.get(self.name) is None:
-            frame = frame.f_back
-            if frame is None:
-                raise ValueError(f"Tool '{self.name}' not found")
-        return frame.f_globals
+        # self.__qualname__ = self._function.__qualname__
 
     @property
     def function(self):
@@ -62,8 +60,7 @@ class ToolDef:
 ToolType = Union[str, Callable, Sequence[Union[str, Callable]]]
 
 
-@dataclass(init=False)
-class ToolSet:
+class ToolSet(BaseModel):
     """
     A collection of ToolDef objects, representing tools that can be dynamically resolved and invoked.
 
@@ -78,54 +75,73 @@ class ToolSet:
         all(): Returns a list of all tool names in the ToolSet.
     """
 
-    tools: List[ToolDef] = field(init=True, default_factory=list, repr=True)
+    tools: List[ToolDef] = Field(default_factory=list, kw_only=False, key="tools")
 
-    @field_validator("tools", mode="plain")
+    @field_validator("tools", mode="before")
     @classmethod
-    def accept_other(cls, v):
-        if isinstance(v, (list, str, Callable)):
+    def accept_others(cls, v):
+        if isinstance(v, (list, str, dict, Callable)):
             return v
         else:
             raise ValueError(f"Tool must be a callable or a string, not {type(v)}")
 
-    def __post_init__(self):
-        tools = deepcopy(self.tools)
-        self.tools = []
-        for tool in tools:
-            self.add(tool)
+    def __init__(self, tools: Union[list[Callable], list[str], dict, Callable, None] = None):
+        super().__init__()
+
+        if tools:
+            self.tools = []
+            # for tool in tools:
+            self.add(tools)
 
     def add(self, tool: ToolType) -> None:
         if isinstance(tool, Callable):
-            t = ToolDef(name=tool.__name__)
-            self.tools.append(t)
+            if not self._check_tool_exists(tool.__name__):
+                t = ToolDef(name=tool.__name__)
+                self.tools.append(t)  # pylint: disable=no-member
+            else:
+                raise ValueError(f"Tool {tool.__name__} already exists in ToolSet")
         elif isinstance(tool, str):
-            t = ToolDef(name=tool)
-            self.tools.append(t)
+            if not self._check_tool_exists(tool):
+                t = ToolDef(name=tool)
+                self.tools.append(t)  # pylint: disable=no-member
+            else:
+                raise ValueError(f"Tool {tool} already exists in ToolSet")
         elif isinstance(tool, list):
             for t in tool:
+                self.add(t)
+        elif isinstance(tool, dict):
+            for t in tool.values():
                 self.add(t)
         else:
             raise ValueError(f"Tool must be a callable or a string, not {type(tool)}")
 
     def remove(self, name: str) -> Tool:
-        tool = self.get(name)
+        tool = next((tool for tool in self.tools if tool.name == name), None)
         if tool:
-            self.tools.remove(tool)
+            self.tools.remove(tool)  # pylint: disable=no-member
         return tool
 
     def get(self, name: str, default=None):
+        """
+        Retrieves a tool by name from the ToolSet
+        Returns:
+            Callable or default: The tool function if found, otherwise the default value.
+        """
         return next((tool.function for tool in self.tools if tool.name == name), default)
+
+    def _check_tool_exists(self, name: str) -> bool:
+        return next((True for tool in self.tools if tool.name == name), False)
 
     def __iter__(self):
         return iter(self.tools)
 
-    def __getitem__(self, item):
+    def __getitem__(self, item) -> Callable:
         return self.tools[item].function
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.tools)
 
-    def __contains__(self, value):
+    def __contains__(self, value) -> bool:
         if isinstance(value, str):
             return self.get(value) is not None
         elif isinstance(value, Callable):

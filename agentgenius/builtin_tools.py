@@ -5,24 +5,24 @@ from pathlib import Path
 # from .tools import ToolSet
 
 
-def get_all_agents() -> list[str]:
-    """Get list of all available agents"""
-    return AgentStore(config.agents_path).load_agents().list()
+# def get_all_agents() -> list[str]:
+#     """Get list of all available agents"""
+#     return AgentStore(config.agents_path).load_agents().list()
 
 
-def get_all_tools() -> list[str]:
-    """Get list of all available tools"""
-    return ToolSet().list_all_tools()
+# def get_all_tools() -> list[str]:
+#     """Get list of all available tools"""
+#     return ToolSet().list_all_tools()
 
 
-def get_external_tools() -> list[str]:
-    """Get list of all external tools"""
-    return ToolSet().list_external_tools()
+# def get_external_tools() -> list[str]:
+#     """Get list of all external tools"""
+#     return ToolSet().list_external_tools()
 
 
-def get_builtin_tools() -> list[str]:
-    """Get list of all builtin tools"""
-    return ToolSet.list_builtin_tools()
+# def get_builtin_tools() -> list[str]:
+#     """Get list of all builtin tools"""
+#     return ToolSet.list_builtin_tools()
 
 
 def get_datetime(format: str = "%Y-%m-%d %H:%M:%S") -> str:
