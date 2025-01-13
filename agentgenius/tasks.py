@@ -4,9 +4,6 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    ValidationInfo,
-    field_serializer,
-    field_validator,
 )
 from pydantic.dataclasses import dataclass
 from pydantic_ai import Agent, Tool
@@ -14,10 +11,8 @@ from pydantic_ai import Agent, Tool
 from agentgenius import tools
 from agentgenius.agents import AgentDef
 from agentgenius.tools import ToolDef, ToolSet
-from agentgenius.utils import TypeAdapterMixin, custom_type_encoder
 
 
-# @dataclass(init=False)
 class TaskDef(BaseModel):
     """A task definition with associated agent and toolset.
 
@@ -36,41 +31,18 @@ class TaskDef(BaseModel):
     question: str
     priority: int = Field(default=1, ge=1, le=10)
     agent_def: Optional[AgentDef] = Field(default=None)
-    toolset: Optional[ToolSet] = Field(default=None)
+    toolset: Optional[ToolSet] = Field(default_factory=ToolSet)
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
-        json_encoders={type: custom_type_encoder},
+        # json_encoders={type: custom_type_encoder},
         # defer_build=True,
     )
-
-    @field_validator("agent_def")
-    @classmethod
-    def validate_agent(cls, value):
-        if isinstance(value, dict):
-            value = AgentDef.model_validate(value)
-        return value
-
-    @field_validator("toolset")
-    @classmethod
-    def validate_toolset(cls, value):
-        if isinstance(value, dict):
-            value = ToolSet.model_validate(value)
-        return value
 
     def __lt__(self, other):
         return self.priority < other.priority
 
-    @field_serializer("agent_def")
-    def _serialize_agent_def(self, value: AgentDef):
-        return value.model_dump() if value else None
 
-    @field_serializer("toolset")
-    def _serialize_toolset(self, value: ToolSet):
-        return value.model_dump() if value else None
-
-
-# @dataclass
 class Task(BaseModel):
     """
     A task with an associated agent and toolset.
@@ -83,32 +55,25 @@ class Task(BaseModel):
     """
 
     task_def: TaskDef = Field(default_factory=TaskDef)
-    agent_def: AgentDef = Field(default=None)
-    toolset: ToolSet = Field(default=None)
+    agent_def: Optional[AgentDef] = Field(default=None)
+    toolset: Optional[ToolSet] = Field(default=None)
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
-        json_encoders={type: custom_type_encoder},
-        # defer_build=True,
     )
-
-    @field_validator("agent_def")
-    @classmethod
-    def validate_agent_def(cls, value):
-        if isinstance(value, dict):
-            value = AgentDef.model_validate(value)
-        return value
 
     def __init__(self, task_def: TaskDef, agent_def: AgentDef = None, toolset: ToolSet = None):  # pylint: disable=redefined-outer-name
         agent_def = agent_def if agent_def is not None else task_def.agent_def
+        if agent_def is None:
+            raise ValueError("AgentDef is required ether in constructor or in TaskDef")
         toolset = toolset if toolset is not None else task_def.toolset
         super().__init__(task_def=task_def, agent_def=agent_def, toolset=toolset)
         self._agent = Agent(
             model=self.agent_def.model,  # pylint: disable=no-member
             name=self.agent_def.name,  # pylint: disable=no-member
             system_prompt=self.agent_def.system_prompt,  # pylint: disable=no-member
-            tools=self._prepare_tools(self.toolset),
-            **self.agent_def.params.model_dump(exclude_unset=True) if self.agent_def.params else {},  # pylint: disable=no-member
+            tools=self._prepare_tools(self.toolset) if self.toolset is not None else [],
+            **self.agent_def.params.__dict__ if self.agent_def.params is not None else {},  # pylint: disable=no-member
         )
 
     def _prepare_tools(self, t: list) -> list[Tool]:

@@ -1,12 +1,9 @@
-from copy import deepcopy
-from dataclasses import field
 from typing import Callable, List, Optional, Sequence, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from pydantic.dataclasses import dataclass
 from pydantic_ai.tools import Tool
 
-from agentgenius.utils import custom_type_encoder, search_frame
+from agentgenius.utils import search_frame
 
 
 class ToolDef(BaseModel):
@@ -18,15 +15,10 @@ class ToolDef(BaseModel):
         name: A string representing the name of the tool, used to retrieve the corresponding callable.
     """
 
-    name: str = field(default="", repr=True)
+    name: str = Field(default="", repr=True)
     # code: Optional[str] = field(default=None, repr=True)
-    # _function: Optional[Tool] = field(default=None, repr=False, init=False)
 
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-        json_encoders={type: custom_type_encoder},
-        # defer_build=True,
-    )
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def __init__(self, name: str):
         super().__init__(name=name)

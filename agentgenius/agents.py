@@ -1,16 +1,14 @@
 from types import NoneType
-from typing import Annotated, Any, GenericAlias, Literal, Optional, Type, Union, get_args, get_origin
+from typing import Annotated, Any, Dict, GenericAlias, Literal, Optional, Type, Union, get_args, get_origin
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 from pydantic._internal._model_construction import ModelMetaclass
 from pydantic._internal._schema_generation_shared import GetJsonSchemaHandler
-from pydantic_ai.agent import EndStrategy, RunContext
-from pydantic_ai.models import KnownModelName
+from pydantic_ai.agent import EndStrategy
 from pydantic_ai.result import ResultData
-from pydantic_ai.settings import ModelSettings
-from pydantic_ai.tools import AgentDeps
 from pydantic_core import CoreSchema, core_schema
 
+from agentgenius.config import KNOWN_MODELS
 from agentgenius.utils import search_frame
 
 TYPE_MAPPING = {
@@ -27,7 +25,6 @@ TYPE_MAPPING = {
     "bytearray": bytearray,
     "None": None,
     "NoneType": type(None),
-    # "TaskDef": "TaskDef",  # Will be resolved dynamically
 }
 
 
@@ -44,14 +41,15 @@ class TypeField:
             except Exception as e:
                 raise ValueError(f"Invalid type: {value}") from e
         if isinstance(value, (type, GenericAlias, ModelMetaclass)):
+            TypeAdapter(value).rebuild(force=True)
             return value
         raise ValueError(f"Expected type or type name, got {type(value)}")
 
     @classmethod
     def serialize(cls, value: Type) -> str:
         """Serialize type to string representation"""
-        if value is None:
-            return "None"
+        # if value is NoneType:
+        #     return "NoneType"
         if isinstance(value, GenericAlias):
             origin = get_origin(value)
             args = get_args(value)
@@ -85,7 +83,8 @@ class TypeField:
                     core_schema.is_instance_schema(type),
                     core_schema.is_instance_schema(GenericAlias),
                     core_schema.str_schema(),
-                    core_schema.int_schema(),
+                    core_schema.dict_schema(),
+                    core_schema.list_schema(),
                 ]
             ),
             serialization=core_schema.plain_serializer_function_ser_schema(cls.serialize),
@@ -95,7 +94,7 @@ class TypeField:
 class AgentParams(BaseModel):
     result_type: Optional[Annotated[Type, TypeField]] = Field(default=str)
     deps_type: Optional[Annotated[Type, TypeField]] = Field(default=NoneType)
-    model_settings: Optional[dict] = Field(default=None)
+    model_settings: Optional[Dict] = Field(default=None)
     retries: int = Optional[Field(default=1)]
     result_tool_name: Optional[str] = Field(default="final_result")
     result_tool_description: Optional[str] = Field(default=None)
@@ -114,15 +113,18 @@ class AgentParams(BaseModel):
         result = TypeField.validate(value)
         return result
 
+    def dict(self):
+        return ResultData
+
 
 class AgentDef(BaseModel):
-    model: KnownModelName
+    model: KNOWN_MODELS
     name: str
     system_prompt: str
     params: Optional[AgentParams] = Field(default=None)
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
-        json_encoders={type: TypeField.serialize},
+        # json_encoders={type: TypeField.serialize},
         # defer_build=True,
     )

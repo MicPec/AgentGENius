@@ -1,9 +1,12 @@
+from typing import List
+
 import logfire
 from dotenv import load_dotenv
+from pydantic import TypeAdapter
 from pydantic_ai import ModelRetry, RunContext, Tool
 from rich import print
 
-from agentgenius import AgentDef, Task, TaskDef
+from agentgenius import AgentDef, AgentParams, Task, TaskDef
 from agentgenius.builtin_tools import get_datetime, get_location_by_ip, get_user_ip
 from agentgenius.tasks import TaskList
 from agentgenius.tools import ToolSet
@@ -11,8 +14,9 @@ from agentgenius.tools import ToolSet
 load_dotenv()
 logfire.configure(send_to_logfire="if-token-present")
 
+
 planner = Task(
-    task=TaskDef(name="planner", question="make a short plan how to archive this task", priority=1),
+    task_def=TaskDef(name="planner", question="make a short plan how to archive this task", priority=1),
     agent_def=AgentDef(
         # model="openai:gpt-4o",
         model="openai:gpt-4o",
@@ -24,16 +28,17 @@ planner = Task(
         Efficiently is a priority, so don't waste time on things that are not necessary.
         LESS STEPS IS BETTER (up to 3 steps), so make it as short as possible.
         Tell an agent to use the tools if available. ALWAYS USE THE USER'S LANGUAGE""",
-        params={
-            "result_type": list[Task],  # Task,
-            "retries": 5,
-        },
+        params=AgentParams(
+            result_type=TaskDef,
+            # deps_type=TaskDef,
+            retries=3,
+        ),
     ),
     # toolset=ToolSet([get_datetime, get_user_ip, get_location_by_ip]),
 )
 
 
-@planner.agent.system_prompt
+@planner._agent.system_prompt
 def get_available_tools():
     """Return a list of available tool names. DO NOT CALL THESE TOOLS.
     Just pass them to the other agents and let them to use them."""
@@ -42,24 +47,25 @@ def get_available_tools():
     return f"Available tools: {', '.join(toolset.all())}"
 
 
-# @planner.agent.result_validator
-# def validate_result(result: Task):
-#     if result.agent_def is None:
-#         raise ModelRetry(f"Agent is not defined in {result}")
-#     if result.toolset == []:
-#         raise ModelRetry(f"Toolset is not defined in {result}")
-#     return result
+@planner._agent.result_validator
+def validate_result(ctx: RunContext, result: TaskDef):
+    if result.agent_def is None:
+        raise ModelRetry(f"Agent is not defined in {result}")
+    if result.toolset == []:
+        raise ModelRetry(f"Toolset is not defined in {result}")
+    return result
 
 
 # result = planner.run_sync("what time is it at my location?")
 # result = planner.run_sync("how to get my location by IP?")
-result = planner.run_sync("Jaka jest moja lokacja i godzina?")
+result = planner.run_sync("Jaka jest moja lokacja i godzina? Kim jesteś?")
 
 print(result.data)
-# task = result.data
-# print(task.run_sync().data)
+task = Task(task_def=result.data)
+result = task.run_sync()
+print(result.data)
 
-for task in result.data:
-    ctx = []
-    ctx.append(task.run_sync(deps=ctx).data)
-    print(ctx)
+# for task in result.data:
+#     ctx = []
+#     ctx.append(task.run_sync(deps=ctx).data)
+#     print(ctx)

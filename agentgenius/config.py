@@ -1,8 +1,16 @@
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+from pydantic_ai.models import KnownModelName as kmn
+
+KNOWN_MODELS = Literal["openai:gpt-4o", "openai:gpt-4o-mini", "test"]
+
+
+if not KNOWN_MODELS:
+    KNOWN_MODELS = kmn
 
 
 class AgentGENiusConfig(BaseModel):
@@ -24,7 +32,7 @@ class AgentGENiusConfig(BaseModel):
 
 
 config = AgentGENiusConfig()
-
+Path.mkdir(config.logs_path, exist_ok=True)
 logging.basicConfig(
     level=config.log_level,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",

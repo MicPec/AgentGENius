@@ -21,8 +21,8 @@ def custom_type_encoder(obj: Any) -> Any:
     if isinstance(obj, type):
         return obj.__name__  # Serialize type objects as their names
     if isinstance(obj, GenericAlias):
-        return str(obj)
-    return obj.dict()  # Fallback to default Pydantic encoder
+        return repr(obj)
+    return obj.model_dump()  # Fallback to default Pydantic encoder
 
 
 def search_frame(value: str):

@@ -26,7 +26,7 @@ from pathlib import Path
 
 
 def get_datetime(format: str = "%Y-%m-%d %H:%M:%S") -> str:
-    """Get the current datetime as a string in the specified python format."""
+    """Get the current datetime as a string in the specified python format. '%Y-%m-%d %H:%M:%S'"""
     from datetime import datetime
 
     return datetime.now().strftime(format)
@@ -37,7 +37,7 @@ def get_user_ip() -> str:
     import requests
 
     try:
-        response = requests.get("https://ifconfig.me")
+        response = requests.get("https://ifconfig.me", timeout=10)
         return response.text.strip()
     except requests.RequestException as e:
         return f"Error: {str(e)}"
@@ -48,7 +48,7 @@ def get_location_by_ip(ip_address: str) -> str:
     import requests
 
     url = f"https://apip.cc/api-json/{ip_address}"
-    response = requests.get(url)
+    response = requests.get(url, timeout=10)
     if response.status_code == 200:
         location_data = response.text.strip()
         return location_data
