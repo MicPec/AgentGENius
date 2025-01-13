@@ -1,15 +1,13 @@
 import json
-from typing import Dict, Optional
 
 import pytest
 from pydantic import ValidationError
 
 from agentgenius.agents import AgentDef, AgentParams
-from agentgenius.tasks import TaskDef, Task, ToolSet
 from agentgenius.builtin_tools import get_datetime
+from agentgenius.tasks import Task, TaskDef, ToolSet
 
 
-@pytest.fixture
 def sample_agent_def():
     return AgentDef(
         model="openai:gpt-4o",
@@ -58,7 +56,7 @@ class TestTaskDef:
         assert task_def.question == "Test question"
         assert task_def.priority == 1
         assert task_def.agent_def is None
-        assert task_def.toolset is None
+        assert isinstance(task_def.toolset, ToolSet)
 
     def test_invalid_priority(self):
         """Test that negative priority raises ValidationError"""

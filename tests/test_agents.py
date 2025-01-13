@@ -1,13 +1,9 @@
 import json
-from typing import List, Optional
 
 import pytest
 from pydantic import ValidationError
-from pydantic_ai.models import KnownModelName
-
 
 from agentgenius.agents import AgentDef, AgentParams
-from agentgenius.tools import ToolSet
 
 
 @pytest.fixture

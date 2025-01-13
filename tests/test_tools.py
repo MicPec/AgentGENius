@@ -4,8 +4,8 @@ from typing import Any, Dict
 import pytest
 from pydantic_ai import RunContext
 
-from agentgenius.tools import ToolDef, ToolSet
 from agentgenius.builtin_tools import get_datetime
+from agentgenius.tools import ToolDef, ToolSet
 
 
 @pytest.fixture
