@@ -25,6 +25,7 @@ class TaskDef(BaseModel):
 
     Note:
         The `agent` and `toolset` attributes are optional and can be omitted and set during task creation.
+        However, the `agent_def` and `toolset` attributes are required in the Task class.
     """
 
     name: str
@@ -50,7 +51,7 @@ class Task(BaseModel):
     Attributes:
         agent (Agent): The agent to use for running the task.
         task (TaskDef): The task definition.
-        agent_def (AgentDef): The agent definition.
+        agent_def (AgentDef): The agent definition. Can be omitted, but task_def.agent_def is required in this case.
         toolset (ToolSet): The toolset to use for running the task. Defaults to an empty list.
     """
 
@@ -62,12 +63,34 @@ class Task(BaseModel):
         arbitrary_types_allowed=True,
     )
 
-    def __init__(self, task_def: TaskDef, agent_def: AgentDef = None, toolset: ToolSet = None):  # pylint: disable=redefined-outer-name
-        agent_def = agent_def if agent_def is not None else task_def.agent_def
+    # def __init__(self, task_def: TaskDef, agent_def: AgentDef, toolset: ToolSet):  # pylint: disable=redefined-outer-name
+    def __init__(self, **data):
+        task_def = data["task_def"]
+        print(f"{task_def=}")
+        print(f"{type(task_def)=}")
+        agent_def = (
+            data["agent_def"]
+            if "agent_def" in data and data["agent_def"] is not None
+            else task_def.agent_def
+            if isinstance(task_def, TaskDef)
+            else task_def["agent_def"]
+            if "agent_def" in task_def
+            else None
+        )
+        # task_def.agent_def = agent_def
         if agent_def is None:
             raise ValueError("AgentDef is required ether in constructor or in TaskDef")
-        toolset = toolset if toolset is not None else task_def.toolset
+        toolset = (
+            data["toolset"]
+            if "toolset" in data and data["toolset"] is not None
+            else task_def.toolset
+            if isinstance(task_def, TaskDef)
+            else task_def["toolset"]
+            if "toolset" in task_def
+            else None
+        )
         super().__init__(task_def=task_def, agent_def=agent_def, toolset=toolset)
+
         self._agent = Agent(
             model=self.agent_def.model,  # pylint: disable=no-member
             name=self.agent_def.name,  # pylint: disable=no-member
@@ -104,19 +127,17 @@ class Task(BaseModel):
         return self._agent.run_sync(question, **kwargs)
 
 
-@dataclass(init=False)
-class TaskList:
-    tasks: list[TaskDef]
+class TaskList(BaseModel):
+    tasks: list[TaskDef] = Field(default_factory=list)
 
+    def __iter__(self):
+        return iter(self.tasks)
 
-#     def __iter__(self):
-#         return iter(self.tasks)
+    def __getitem__(self, item):
+        return self.tasks[item]
 
-#     def __getitem__(self, item):
-#         return self.tasks[item]
-
-#     def append(self, task: TaskDef):
-#         self.tasks.append(task)
+    def append(self, task: TaskDef):
+        self.tasks.append(task)
 
 
 # @classmethod

@@ -29,7 +29,7 @@ planner = Task(
         LESS STEPS IS BETTER (up to 3 steps), so make it as short as possible.
         Tell an agent to use the tools if available. ALWAYS USE THE USER'S LANGUAGE""",
         params=AgentParams(
-            result_type=TaskDef,
+            result_type=list[Task],
             # deps_type=TaskDef,
             retries=3,
         ),
@@ -47,8 +47,8 @@ def get_available_tools():
     return f"Available tools: {', '.join(toolset.all())}"
 
 
-@planner._agent.result_validator
-def validate_result(ctx: RunContext, result: TaskDef):
+# @planner._agent.result_validator
+def validate_result(result: TaskDef):
     if result.agent_def is None:
         raise ModelRetry(f"Agent is not defined in {result}")
     if result.toolset == []:
@@ -58,14 +58,15 @@ def validate_result(ctx: RunContext, result: TaskDef):
 
 # result = planner.run_sync("what time is it at my location?")
 # result = planner.run_sync("how to get my location by IP?")
-result = planner.run_sync("Jaka jest moja lokacja i godzina? Kim jesteś?")
+result = planner.run_sync("Jaka jest moja lokacja i godzina? Kim jestem?")
 
 print(result.data)
-task = Task(task_def=result.data)
-result = task.run_sync()
-print(result.data)
+# task = Task(task_def=result.data)
+# task = result.data
+# result = task.run_sync()
+# print(result.data)
 
-# for task in result.data:
-#     ctx = []
-#     ctx.append(task.run_sync(deps=ctx).data)
-#     print(ctx)
+for task in result.data:
+    ctx = []
+    ctx.append(task.run_sync(deps=ctx).data)
+    print(ctx)

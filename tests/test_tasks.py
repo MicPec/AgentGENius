@@ -8,9 +8,10 @@ from agentgenius.builtin_tools import get_datetime
 from agentgenius.tasks import Task, TaskDef, ToolSet
 
 
+@pytest.fixture
 def sample_agent_def():
     return AgentDef(
-        model="openai:gpt-4o",
+        model="test",
         name="TestAgent",
         system_prompt="You are a test assistant.",
         params=AgentParams(
@@ -76,8 +77,8 @@ class TestTaskDef:
         assert data["name"] == "TestTask"
         assert data["question"] == "What time is it?"
         assert data["priority"] == 1
-        assert "agent_def" in data
-        assert "toolset" in data
+        assert "agent_def" in data and data["agent_def"] is not None
+        assert "toolset" in data and data["toolset"] is not None
 
         # Test deserialization
         task_def2 = TaskDef.model_validate_json(json_str)
@@ -91,7 +92,7 @@ class TestTaskDef:
 class TestTask:
     def test_create_task(self, basic_task_def):
         """Test creating Task from TaskDef"""
-        task = Task(basic_task_def)
+        task = Task(task_def=basic_task_def)
         assert task.task_def == basic_task_def
         assert isinstance(task.agent_def, AgentDef)
         assert isinstance(task.toolset, ToolSet)
@@ -99,7 +100,7 @@ class TestTask:
     def test_create_task_with_overrides(self, basic_task_def, sample_agent_def, sample_toolset):
         """Test creating Task with agent_def and toolset overrides"""
         new_agent = AgentDef(
-            model="openai:gpt-4o-mini",
+            model="test",
             name="OverrideAgent",
             system_prompt="Override prompt",
             params=AgentParams(result_type=int),
@@ -116,7 +117,7 @@ class TestTask:
 
     def test_serialization(self, basic_task_def):
         """Test JSON serialization and deserialization"""
-        task = Task(basic_task_def)
+        task = Task(task_def=basic_task_def)
         json_str = task.model_dump_json()
         data = json.loads(json_str)
 
