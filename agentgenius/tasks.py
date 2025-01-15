@@ -139,6 +139,9 @@ class TaskList(BaseModel):
     def append(self, task: TaskDef):
         self.tasks.append(task)
 
+    def sorted(self):
+        return sorted(self.tasks)
+
 
 # @classmethod
 # def __get_pydantic_core_schema__(cls, source: any, handler: GetCoreSchemaHandler) -> core_schema.CoreSchema:

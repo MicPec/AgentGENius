@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "beautifulsoup4>=4.12.3",
+    "duckduckgo-search>=7.2.1",
     "logfire>=2.11.1",
     "matplotlib>=3.10.0",
     "pandas>=2.2.3",
@@ -13,6 +14,7 @@ dependencies = [
     "pip>=24.3.1",
     "psutils>=3.3.8",
     "pydantic-ai>=0.0.15",
+    "pytest>=8.3.4",
     "python-dotenv>=1.0.1",
     "streamlit>=1.41.1",
 ]

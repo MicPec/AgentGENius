@@ -54,3 +54,46 @@ def get_location_by_ip(ip_address: str) -> str:
         return location_data
     else:
         return "Error: Unable to retrieve location data"
+
+
+def get_installed_packages() -> str:
+    """Get a list of all installed python packages and their versions in the current environment."""
+    import pkg_resources
+
+    return "\n".join([str(pkg) for pkg in pkg_resources.working_set])
+
+
+def get_user_name() -> str:
+    """Get the username of the current user."""
+    import getpass
+
+    return getpass.getuser()
+
+
+def get_builtin_tools() -> list[str]:
+    """Get list of all builtin tools"""
+    return [
+        func.__name__
+        for func in globals().values()
+        if callable(func) and func.__module__ == __name__ and not func.__name__.startswith("_")
+    ]
+
+
+def get_weather_forecast(latitude: float, longitude: float) -> str:
+    """Get the current weather and forecast for the given latitude and longitude."""
+    import requests
+
+    url = f"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current=temperature_2m,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m"
+    response = requests.get(url, timeout=10)
+    if response.status_code == 200:
+        weather_data = response.json()
+        return weather_data
+        return "Error: Unable to retrieve weather data"
+
+
+def search_web(query: str) -> str:
+    """Search the web using duckduckgo API"""
+    from duckduckgo_search import DDGS
+
+    results = DDGS().text(query, max_results=5)
+    return results

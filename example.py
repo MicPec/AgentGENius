@@ -6,8 +6,8 @@ from pydantic import TypeAdapter
 from pydantic_ai import ModelRetry, RunContext, Tool
 from rich import print
 
+from agentgenius.builtin_tools import *
 from agentgenius import AgentDef, AgentParams, Task, TaskDef
-from agentgenius.builtin_tools import get_datetime, get_location_by_ip, get_user_ip
 from agentgenius.tasks import TaskList
 from agentgenius.tools import ToolSet
 
@@ -29,7 +29,7 @@ planner = Task(
         LESS STEPS IS BETTER (up to 3 steps), so make it as short as possible.
         Tell an agent to use the tools if available. ALWAYS USE THE USER'S LANGUAGE""",
         params=AgentParams(
-            result_type=list[Task],
+            result_type=TaskList,
             # deps_type=TaskDef,
             retries=3,
         ),
@@ -42,7 +42,7 @@ planner = Task(
 def get_available_tools():
     """Return a list of available tool names. DO NOT CALL THESE TOOLS.
     Just pass them to the other agents and let them to use them."""
-    toolset = ToolSet([get_datetime, get_user_ip, get_location_by_ip])
+    toolset = ToolSet(get_builtin_tools())
     planner.register_toolset(toolset)
     return f"Available tools: {', '.join(toolset.all())}"
 
@@ -58,15 +58,30 @@ def validate_result(result: TaskDef):
 
 # result = planner.run_sync("what time is it at my location?")
 # result = planner.run_sync("how to get my location by IP?")
-result = planner.run_sync("Jaka jest moja lokacja i godzina? Kim jestem?")
+plan = planner.run_sync("Jaka jest moja lokacja i godzina? Jaka jest pogoda? opoewiedz coś o moim mieście")
 
-print(result.data)
+print(plan.data)
 # task = Task(task_def=result.data)
 # task = result.data
 # result = task.run_sync()
 # print(result.data)
 
-for task in result.data:
-    ctx = []
-    ctx.append(task.run_sync(deps=ctx).data)
-    print(ctx)
+# for task in result.data:
+#     ctx = []
+#     ctx.append(task.run_sync(deps=ctx).data)
+# print(ctx)
+
+agent = AgentDef(
+    name="main",
+    model="openai:gpt-4o-mini",
+    system_prompt="You are a helpful assistant.",
+    params=AgentParams(
+        # deps_type=list[str],
+    ),
+)
+result = []
+for task_def in plan.data.sorted():
+    task = Task(task_def=task_def, agent_def=agent)
+    tast_result = task.run_sync(result)
+    result.append(tast_result.data)
+print(result)
