@@ -18,26 +18,24 @@ class TaskDef(BaseModel):
 
     Attributes:
         name (str): The name of the task.
-        question (str): The question to ask the agent.
+        query (str): The question or command to ask the agent.
         priority (int): The priority of the task, lower values are executed first.
-        agent (Optional[AgentDef]): The agent to use for running the task, optional.
+        agent_def (Optional[AgentDef]): The agent to use for running the task, optional.
         toolset (Optional[ToolSet]): The toolset to use for running the task, optional.
 
     Note:
         The `agent` and `toolset` attributes are optional and can be omitted and set during task creation.
-        However, the `agent_def` and `toolset` attributes are required in the Task class.
+        However, the `agent_def` attribute is required in the Task class.
     """
 
     name: str
-    question: str
+    query: str = Field(..., description="The question or command to ask the agent.")
     priority: int = Field(default=1, ge=1, le=10)
     agent_def: Optional[AgentDef] = Field(default=None)
     toolset: Optional[ToolSet] = Field(default_factory=ToolSet)
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
-        # json_encoders={type: custom_type_encoder},
-        # defer_build=True,
     )
 
     def __lt__(self, other):
@@ -63,11 +61,8 @@ class Task(BaseModel):
         arbitrary_types_allowed=True,
     )
 
-    # def __init__(self, task_def: TaskDef, agent_def: AgentDef, toolset: ToolSet):  # pylint: disable=redefined-outer-name
     def __init__(self, **data):
         task_def = data["task_def"]
-        print(f"{task_def=}")
-        print(f"{type(task_def)=}")
         agent_def = (
             data["agent_def"]
             if "agent_def" in data and data["agent_def"] is not None
@@ -115,15 +110,15 @@ class Task(BaseModel):
             self.register_tool(tool)
 
     async def run(self, *args, **kwargs):
-        question = self.task_def.question  # pylint: disable=no-member
-        if self.task_def.question and args:  # pylint: disable=no-member
-            question = f"{self.task_def.question}: {args[0]}"  # pylint: disable=no-member
+        question = self.task_def.query  # pylint: disable=no-member
+        if self.task_def.query and args:  # pylint: disable=no-member
+            question = f"{self.task_def.query}: {args[0]}"  # pylint: disable=no-member
         return await self._agent.run(question, **kwargs)
 
     def run_sync(self, *args, **kwargs):
-        question = self.task_def.question  # pylint: disable=no-member
-        if self.task_def.question and args:  # pylint: disable=no-member
-            question = f"{self.task_def.question}: {args[0]}"  # pylint: disable=no-member
+        question = self.task_def.query  # pylint: disable=no-member
+        if self.task_def.query and args:  # pylint: disable=no-member
+            question = f"{self.task_def.query}: {args[0]}"  # pylint: disable=no-member
         return self._agent.run_sync(question, **kwargs)
 
 

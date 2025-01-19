@@ -67,7 +67,7 @@ class ToolSet(BaseModel):
         all(): Returns a list of all tool names in the ToolSet.
     """
 
-    tools: List[ToolDef] = Field(default_factory=list, kw_only=False, key="tools")
+    tools: List[ToolDef] = Field(default_factory=list, kw_only=False, json_schema_extra={"key": "tools"})
 
     @field_validator("tools", mode="before")
     @classmethod

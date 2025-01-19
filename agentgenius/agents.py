@@ -1,11 +1,13 @@
 from types import NoneType
-from typing import Annotated, Any, Dict, GenericAlias, Literal, Optional, Type, Union, get_args, get_origin
+from typing import Annotated, Any, Dict, GenericAlias, Optional, Type, Union, _UnionGenericAlias, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
-from pydantic._internal._model_construction import ModelMetaclass
+
+# from pydantic._internal._model_construction import ModelMetaclass
 from pydantic._internal._schema_generation_shared import GetJsonSchemaHandler
 from pydantic_ai.agent import EndStrategy
-from pydantic_ai.result import ResultData
+
+# from pydantic_ai.result import ResultData
 from pydantic_core import CoreSchema, core_schema
 
 from agentgenius.config import KNOWN_MODELS
@@ -30,7 +32,7 @@ TYPE_MAPPING = {
 
 class TypeField:
     @classmethod
-    def validate(cls, value: Union[str, type, GenericAlias, NoneType]) -> Type:
+    def validate(cls, value: Union[str, type, GenericAlias, _UnionGenericAlias, NoneType]) -> Type:
         """Validate and convert type field values"""
         if isinstance(value, str):
             if value in TYPE_MAPPING:
@@ -40,7 +42,7 @@ class TypeField:
                 return eval(value, search_frame(value))
             except Exception as e:
                 raise ValueError(f"Invalid type: {value}") from e
-        if isinstance(value, (type, GenericAlias, ModelMetaclass)):
+        if isinstance(value, (type, GenericAlias, _UnionGenericAlias)):
             TypeAdapter(value).rebuild(force=True)
             return value
         raise ValueError(f"Expected type or type name, got {type(value)}")
@@ -66,7 +68,7 @@ class TypeField:
         return {
             "type": "string",
             "description": "Python type name (e.g., 'str', 'int', 'list[str]')",
-            "examples": ["str", "int", "list[str]", "TaskDef"],
+            "examples": ["str", "int", "list[str]", "TaskDef", "Union[str, int]"],
         }
 
     @classmethod
@@ -113,8 +115,8 @@ class AgentParams(BaseModel):
         result = TypeField.validate(value)
         return result
 
-    def dict(self):
-        return ResultData
+    # def dict(self):
+    #     return ResultData
 
 
 class AgentDef(BaseModel):
@@ -125,6 +127,4 @@ class AgentDef(BaseModel):
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
-        # json_encoders={type: TypeField.serialize},
-        # defer_build=True,
     )

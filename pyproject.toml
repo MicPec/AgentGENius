@@ -14,8 +14,10 @@ dependencies = [
     "pip>=24.3.1",
     "psutils>=3.3.8",
     "pydantic-ai>=0.0.15",
+    "pydub>=0.25.1",
     "pytest>=8.3.4",
     "python-dotenv>=1.0.1",
+    "setuptools>=75.8.0",
     "streamlit>=1.41.1",
 ]
 

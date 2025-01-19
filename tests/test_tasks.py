@@ -30,7 +30,7 @@ def sample_toolset():
 def basic_task_def(sample_agent_def, sample_toolset):
     return TaskDef(
         name="TestTask",
-        question="What time is it?",
+        query="What time is it?",
         priority=1,
         agent_def=sample_agent_def,
         toolset=sample_toolset,
@@ -41,7 +41,7 @@ class TestTaskDef:
     def test_create_basic_task_def(self, basic_task_def):
         """Test creating basic TaskDef with all fields"""
         assert basic_task_def.name == "TestTask"
-        assert basic_task_def.question == "What time is it?"
+        assert basic_task_def.query == "What time is it?"
         assert basic_task_def.priority == 1
         assert isinstance(basic_task_def.agent_def, AgentDef)
         assert isinstance(basic_task_def.toolset, ToolSet)
@@ -50,11 +50,11 @@ class TestTaskDef:
         """Test creating TaskDef with only required fields"""
         task_def = TaskDef(
             name="MinimalTask",
-            question="Test question",
+            query="Test question",
             priority=1,
         )
         assert task_def.name == "MinimalTask"
-        assert task_def.question == "Test question"
+        assert task_def.query == "Test question"
         assert task_def.priority == 1
         assert task_def.agent_def is None
         assert isinstance(task_def.toolset, ToolSet)
@@ -64,7 +64,7 @@ class TestTaskDef:
         with pytest.raises(ValidationError):
             TaskDef(
                 name="TestTask",
-                question="Test question",
+                query="Test question",
                 priority=-1,
             )
 
@@ -75,7 +75,7 @@ class TestTaskDef:
 
         # Check serialized data
         assert data["name"] == "TestTask"
-        assert data["question"] == "What time is it?"
+        assert data["query"] == "What time is it?"
         assert data["priority"] == 1
         assert "agent_def" in data and data["agent_def"] is not None
         assert "toolset" in data and data["toolset"] is not None
@@ -83,7 +83,7 @@ class TestTaskDef:
         # Test deserialization
         task_def2 = TaskDef.model_validate_json(json_str)
         assert task_def2.name == basic_task_def.name
-        assert task_def2.question == basic_task_def.question
+        assert task_def2.query == basic_task_def.query
         assert task_def2.priority == basic_task_def.priority
         assert isinstance(task_def2.agent_def, AgentDef)
         assert isinstance(task_def2.toolset, ToolSet)
