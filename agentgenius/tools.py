@@ -85,6 +85,12 @@ class ToolSet(BaseModel):
             # for tool in tools:
             self.add(tools)
 
+    def __or__(self, other):
+        if isinstance(other, ToolSet):
+            return ToolSet(self.tools + other.tools)
+        else:
+            return ToolSet(self.tools + [other])
+
     def add(self, tool: ToolType) -> None:
         if isinstance(tool, Callable):
             if not self._check_tool_exists(tool.__name__):

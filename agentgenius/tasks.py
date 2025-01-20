@@ -75,17 +75,30 @@ class Task(BaseModel):
         # task_def.agent_def = agent_def
         if agent_def is None:
             raise ValueError("AgentDef is required ether in constructor or in TaskDef")
-        toolset = (
-            data["toolset"]
-            if "toolset" in data and data["toolset"] is not None
-            else task_def.toolset
-            if isinstance(task_def, TaskDef)
-            else task_def["toolset"]
-            if "toolset" in task_def
-            else None
-        )
+        # toolset = (
+        #     data["toolset"]
+        #     if "toolset" in data and data["toolset"] is not None
+        #     else task_def.toolset
+        #     if isinstance(task_def, TaskDef)
+        #     else task_def["toolset"]
+        #     if "toolset" in task_def
+        #     else None
+        # )
+        t1 = task_def.toolset if isinstance(task_def, TaskDef) else []
+        t2 = data["toolset"] if "toolset" in data and data["toolset"] is not None else []
+        toolset = t1 | t2
+
         super().__init__(task_def=task_def, agent_def=agent_def, toolset=toolset)
 
+        self._agent = Agent(
+            model=self.agent_def.model,  # pylint: disable=no-member
+            name=self.agent_def.name,  # pylint: disable=no-member
+            system_prompt=self.agent_def.system_prompt,  # pylint: disable=no-member
+            tools=self._prepare_tools(self.toolset) if self.toolset is not None else [],
+            **self.agent_def.params.__dict__ if self.agent_def.params is not None else {},  # pylint: disable=no-member
+        )
+
+    def rebuild(self):
         self._agent = Agent(
             model=self.agent_def.model,  # pylint: disable=no-member
             name=self.agent_def.name,  # pylint: disable=no-member
@@ -103,6 +116,7 @@ class Task(BaseModel):
     def register_tool(self, tool: ToolDef):
         """Registers a tool to the task's agent dynamically."""
         self._agent._register_tool(Tool(tool.function))  # pylint: disable=protected-access
+        self.toolset.add(tool.name)
 
     def register_toolset(self, toolset: ToolSet):
         """Registers toolset to the task's agent dynamically."""
@@ -110,16 +124,16 @@ class Task(BaseModel):
             self.register_tool(tool)
 
     async def run(self, *args, **kwargs):
-        question = self.task_def.query  # pylint: disable=no-member
+        query = self.task_def.query  # pylint: disable=no-member
         if self.task_def.query and args:  # pylint: disable=no-member
-            question = f"{self.task_def.query}: {args[0]}"  # pylint: disable=no-member
-        return await self._agent.run(question, **kwargs)
+            query = f"{self.task_def.query}: {args[0]}"  # pylint: disable=no-member
+        return await self._agent.run(query, **kwargs)
 
     def run_sync(self, *args, **kwargs):
-        question = self.task_def.query  # pylint: disable=no-member
+        query = self.task_def.query  # pylint: disable=no-member
         if self.task_def.query and args:  # pylint: disable=no-member
-            question = f"{self.task_def.query}: {args[0]}"  # pylint: disable=no-member
-        return self._agent.run_sync(question, **kwargs)
+            query = f"{self.task_def.query}: {args[0]}"  # pylint: disable=no-member
+        return self._agent.run_sync(query, **kwargs)
 
 
 class TaskList(BaseModel):
