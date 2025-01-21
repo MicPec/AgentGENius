@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import time
-
+from functools import cache
 import requests
 
 
@@ -13,6 +13,7 @@ import requests
 # from .tools import ToolSet
 
 
+@cache
 def _get_builtin_tools() -> list[str]:
     """Get list of all builtin tools"""
     return [

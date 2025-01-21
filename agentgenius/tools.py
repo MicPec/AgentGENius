@@ -88,8 +88,12 @@ class ToolSet(BaseModel):
     def __or__(self, other):
         if isinstance(other, ToolSet):
             return ToolSet(self.tools + other.tools)
-        else:
+        elif isinstance(other, list):
+            return ToolSet(self.tools + other)
+        elif isinstance(other, Callable):
             return ToolSet(self.tools + [other])
+        else:
+            return ToolSet(self.tools)
 
     def add(self, tool: ToolType) -> None:
         if isinstance(tool, Callable):

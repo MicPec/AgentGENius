@@ -1,5 +1,17 @@
 from types import NoneType
-from typing import Annotated, Any, Dict, GenericAlias, Optional, Type, Union, _UnionGenericAlias, get_args, get_origin
+from typing import (
+    Annotated,
+    Any,
+    Dict,
+    GenericAlias,
+    Optional,
+    Type,
+    Union,
+    _GenericAlias,
+    _UnionGenericAlias,
+    get_args,
+    get_origin,
+)
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 
@@ -32,7 +44,7 @@ TYPE_MAPPING = {
 
 class TypeField:
     @classmethod
-    def validate(cls, value: Union[str, type, GenericAlias, _UnionGenericAlias, NoneType]) -> Type:
+    def validate(cls, value: Union[str, type, GenericAlias, _GenericAlias, _UnionGenericAlias, NoneType]) -> Type:
         """Validate and convert type field values"""
         if isinstance(value, str):
             if value in TYPE_MAPPING:
@@ -42,7 +54,7 @@ class TypeField:
                 return eval(value, search_frame(value))
             except Exception as e:
                 raise ValueError(f"Invalid type: {value}") from e
-        if isinstance(value, (type, GenericAlias, _UnionGenericAlias)):
+        if isinstance(value, (type, GenericAlias, _GenericAlias, _UnionGenericAlias)):
             TypeAdapter(value).rebuild(force=True)
             return value
         raise ValueError(f"Expected type or type name, got {type(value)}")

@@ -153,7 +153,7 @@ def open_json_file(path, mode='r'):
         except Exception as e:
             return str(e)
 
-    def save_tool(self, tool: ToolRequestResult) -> Union[Callable, str]:
+    def save_tool(self, tool: ToolRequestResult) -> Callable:
         with open(self.temp_dir / f"{tool.name}.py", "w") as f:
             f.write(tool.code)
         try:
@@ -170,6 +170,14 @@ def tool_request(tool_request: ToolRequest):
     return tool_coder.get_tool_sync()
 
 
+ToolRequestList = TypeVar("ToolRequestList", bound=list[ToolRequest])
+
+
+class ToolManagerResult(BaseModel):
+    toolset: ToolSet = Field(default_factory=ToolSet, description="A set of existing tools")
+    tool_request: Optional[ToolRequestList] = Field(default=None, description="A list of tools to create")
+
+
 class ToolManager:
     def __init__(self, task_def: TaskDef):
         self.task_def = task_def
@@ -178,11 +186,11 @@ class ToolManager:
             model="openai:gpt-4o",
             name="tool manager",
             system_prompt=f"""You are an expert at selecting and creating  tools for a given task. 
-            Think what tools are needed to solve this task and propose them.
-            Return ToolSet if you have all needed tools ready,
-            or ToolRequest if you need to create a new tool.
-            Created tools must be universal and easy to reuse later.
             Available tools are: {self.get_available_tools()}
+            Think what tools are needed to solve this task and propose them.
+            Return ToolSet of existing tools that are applicable to the task,
+            and ToolRequest if you need to create a new tools.
+            Created tools must be universal and easy to reuse later.
             """,
             # """,system_prompt=f"""You are an expert at creating and selecting tools for a given task.ALWAYS GENERATE A TOOL.
             # Think what tools are needed to solve this task and propose them.
@@ -203,7 +211,7 @@ class ToolManager:
             # schema: {ToolRequest.model_json_schema()}
             # """,
             params=AgentParams(
-                result_type=Union[ToolSet, list[ToolRequest]],
+                result_type=ToolManagerResult,
                 deps_type=TaskDef,
                 retries=2,
             ),
@@ -222,7 +230,7 @@ class ToolManager:
     def get_available_tools(self):
         """Return a list of available tool names. DO NOT CALL THESE TOOLS.
         Just pass them to the other agents and let them to use them."""
-        toolset = ToolSet(_get_builtin_tools())
+        toolset = ToolSet(_get_builtin_tools())  # TODO: add generated tools
         return toolset.all()
 
     async def analyze(self) -> ToolSet:
@@ -233,13 +241,14 @@ class ToolManager:
 
     def analyze_sync(self, query: str | None = None) -> ToolSet:
         result = self.task.run_sync(query)
-        if isinstance(result.data, ToolSet):
-            return result.data
-        if isinstance(result.data, list):
-            return ToolSet(tools=[self._generate_tool(tool_request=tool_request) for tool_request in result.data])
-        if isinstance(result.data, ToolRequest):
-            return ToolSet(tools=[self._generate_tool(tool_request=result.data)])
-        raise ValueError("Failed to analyze tools")
+        if isinstance(result.data, ToolManagerResult):
+            if result.data.tool_request:
+                requested_tools = ToolSet(
+                    tools=[self._generate_tool(tool_request=tool_request) for tool_request in result.data.tool_request]
+                )
+                return result.data.toolset | requested_tools
+            return result.data.toolset
+        return result.data
 
     def _generate_tool(self, tool_request: ToolRequest) -> Callable:
         if isinstance(tool_request, ToolRequest):
@@ -372,7 +381,7 @@ class AgentGENius:
         tool_manager = ToolManager(task_def=task_def)
         tools = await tool_manager.analyze()
         task = Task(task_def=task_def, agent_def=self.task_def.agent_def, toolset=tools)
-        result = await task.run(deps=task_history)
+        result = await task.run(task_history)
         task_history.append({"task": task_def.name, "result": result.data})
 
     def _process_single_task_sync(self, task_def: TaskDef, task_history: TaskHistory) -> None:
@@ -380,7 +389,7 @@ class AgentGENius:
         tool_manager = ToolManager(task_def=task_def)
         tools = tool_manager.analyze_sync()
         task = Task(task_def=task_def, agent_def=self.task_def.agent_def, toolset=tools)
-        result = task.run_sync(deps=task_history)
+        result = task.run_sync(task_history)
         task_history.append({"task": task_def.name, "result": result.data})
 
     # Result aggregation methods
@@ -413,7 +422,7 @@ class AgentGENius:
 
 if __name__ == "__main__":
     agentgenius = AgentGENius()
-    print(agentgenius.ask_sync("jaki dziś mamy dzień i moje IP?"))
+    print(agentgenius.ask_sync("kto to jest janusz kowalski?"))
     print(agentgenius.history)
 
     # tr = ToolRequest(
