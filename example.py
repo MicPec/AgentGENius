@@ -6,7 +6,6 @@ from pathlib import Path
 
 import logfire
 from dotenv import load_dotenv
-from rich import print
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.prompt import Prompt
@@ -14,7 +13,7 @@ from rich.prompt import Prompt
 from agentgenius.main import AgentGENius
 
 load_dotenv()
-logfire.configure(send_to_logfire="if-token-present", console=False)
+# logfire.configure(send_to_logfire="if-token-present", console=False)
 
 
 def main():
@@ -23,16 +22,8 @@ def main():
     console.print("Type 'bye' or press Ctrl+C to quit\n")
 
     # Initialize agent
-    agent = AgentGENius(
-        system_prompt="""You are a helpful AI assistant. You can help with various tasks like:
-        - Getting current time and date
-        - Checking system information
-        - Reading and writing files
-        - Web searches
-        - And more!
-        
-        Always try to be concise and helpful in your responses."""
-    )
+    # agent = AgentGENius(model="ollama:granite3.1-dense:8b-instruct-q6_K")
+    agent = AgentGENius(model="openai:gpt-4o")
 
     try:
         while True:

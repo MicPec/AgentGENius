@@ -6,7 +6,7 @@ from agentgenius.tools import ToolDef
 
 class QuestionAnalyzer:
     def __init__(self, model: str):
-        self._agent = AgentDef(
+        self.agent_def = AgentDef(
             model=model,
             name="task analyzer",
             system_prompt="""You are an expert at breaking down complex tasks into smaller, manageable pieces.
@@ -25,17 +25,17 @@ Steps:
 1. Identify the user's operating system.
 2. Get the user's name and home directory.
 3. Use the user's operating system to search for the file.""",
-            params=AgentParams(
-                result_type=list[TaskDef],
-            ),
+            params=AgentParams(result_type=list[TaskDef], deps_type=TaskHistory),
         )
 
-    async def analyze(self, query: str) -> list[TaskDef]:
-        result = await Task(task_def=TaskDef(name="task_analysis", agent_def=self._agent, query=query)).run()
+    async def analyze(self, query: str, deps: TaskHistory) -> list[TaskDef]:
+        result = await Task(task_def=TaskDef(name="task_analysis", agent_def=self.agent_def, query=query)).run(
+            deps=deps
+        )
         return sorted(result.data, key=lambda x: x.priority)
 
-    def analyze_sync(self, query: str) -> list[TaskDef]:
-        result = Task(task_def=TaskDef(name="task_analysis", agent_def=self._agent, query=query)).run_sync()
+    def analyze_sync(self, query: str, deps: TaskHistory) -> list[TaskDef]:
+        result = Task(task_def=TaskDef(name="task_analysis", agent_def=self.agent_def, query=query)).run_sync(deps=deps)
         return sorted(result.data, key=lambda x: x.priority)
 
 

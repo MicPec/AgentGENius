@@ -121,7 +121,7 @@ class ToolManager:
             Think what tools are needed to solve this task and propose them.
             Return ToolSet of existing tools that are applicable to the task,
             and ToolRequest if you need to create a new tools.
-            Created tools must be universal and easy to reuse later.
+            Created tools must be simple, universal and easy to reuse later.
             """,
             params=AgentParams(
                 result_type=ToolManagerResult,
