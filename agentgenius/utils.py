@@ -29,9 +29,13 @@ def custom_type_encoder(obj: Any) -> Any:
     return obj.model_dump()  # Fallback to default Pydantic encoder
 
 
-def search_frame(value: str):
+def search_frame(value: str, name: str = None) -> dict:
     frame = inspect.currentframe()
     while frame:
+        if name:
+            result = frame.f_globals.get(name)
+            if result == value:
+                return frame.f_globals
         result = frame.f_locals.get(value)
         if result is not None:
             return frame.f_locals | frame.f_globals
@@ -43,15 +47,7 @@ def search_frame(value: str):
 
 
 def save_task_history(filename: str = "task_history.json"):
-    """
-    A decorator that saves task history to a JSON file after each task is processed.
-
-    Args:
-        filename (str): The name of the file to save the task history to. Defaults to 'task_history.json'.
-
-    Returns:
-        callable: The decorated function
-    """
+    """A decorator that saves task history to a JSON file after each task is processed."""
 
     def decorator(func):
         @wraps(func)

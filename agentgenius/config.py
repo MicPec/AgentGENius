@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai.models import KnownModelName as kmn
 
-KNOWN_MODELS = Literal["openai:gpt-4o", "openai:gpt-4o-mini", "test"]
+KNOWN_MODELS = Literal["openai:gpt-4o", "openai:gpt-4o-mini", "ollama:granite3.1-dense:8b-instruct-q6_K", "test"]
 
 
 if not KNOWN_MODELS:

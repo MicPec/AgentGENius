@@ -116,7 +116,7 @@ class Task(BaseModel):
     def register_tool(self, tool: ToolDef):
         """Registers a tool to the task's agent dynamically."""
         self._agent._register_tool(Tool(tool.function))  # pylint: disable=protected-access
-        self.toolset.add(tool.name)
+        self.toolset.add(tool.name)  # pylint: disable=no-member
 
     def register_toolset(self, toolset: ToolSet):
         """Registers toolset to the task's agent dynamically."""
@@ -146,7 +146,7 @@ class TaskList(BaseModel):
         return self.tasks[item]
 
     def append(self, task: TaskDef):
-        self.tasks.append(task)
+        self.tasks.append(task)  # pylint: disable=no-member
 
     def sorted(self):
         return sorted(self.tasks)

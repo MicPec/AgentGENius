@@ -4,14 +4,14 @@ from agentgenius.tasks import Task, TaskDef
 
 
 class Aggregator:
-    def __init__(self, history: TaskHistory):
+    def __init__(self, model: str, history: TaskHistory):
         self.history = history
         self.task_def = TaskDef(
             name="aggregator",
             query="Analyze full history of tasks and results and generate a final answer. Answer in language of the user first query.",
             priority=10,
             agent_def=AgentDef(
-                model="openai:gpt-4o",
+                model=model,
                 name="aggregator",
                 system_prompt="You are an expert at synthesizing information and providing clear, direct answers.",
                 params=AgentParams(

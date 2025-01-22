@@ -8,6 +8,7 @@ from agentgenius.agents import AgentDef, AgentParams
 from agentgenius.builtin_tools import _get_builtin_tools, get_installed_packages
 from agentgenius.tasks import Task, TaskDef
 from agentgenius.tools import ToolSet
+from agentgenius.utils import search_frame
 
 
 class ToolRequest(BaseModel):
@@ -17,20 +18,23 @@ class ToolRequest(BaseModel):
     kwargs: Optional[dict] = Field(default=None)
 
 
+ToolRequestList = TypeVar("ToolRequestList", bound=list[ToolRequest])
+
+
 class ToolRequestResult(BaseModel):
-    name: str
-    code: str
+    name: str = Field(..., description="Tool name, must be valid python function name")
+    code: str = Field(..., description="Python code that can be executed")
 
 
 class ToolCoder:
-    def __init__(self, tool_request: ToolRequest):
+    def __init__(self, model: str, tool_request: ToolRequest):
         self.temp_dir = Path(tempfile.gettempdir()) / "agentgenius_tools"
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         self.tool_request = tool_request
         self.task = Task(
             task_def=TaskDef(name="tool_request", query="Create a tool: "),
             agent_def=AgentDef(
-                model="openai:gpt-4o",
+                model=model,
                 name="tool manager",
                 system_prompt=f"""You are an expert python developer.
 You are asked to create a new tool function that will be used by an AI agent.
@@ -80,17 +84,23 @@ def open_json_file(path, mode='r'):
         except Exception as e:
             return str(e)
 
+    async def get_tool(self) -> str:
+        tool_coder = await self.task.run(self.tool_request)
+        try:
+            function = self.save_tool(tool_coder.data)
+            return function
+        except Exception as e:
+            return str(e)
+
     def save_tool(self, tool: ToolRequestResult) -> Callable:
         with open(self.temp_dir / f"{tool.name}.py", "w") as f:
             f.write(tool.code)
         try:
-            exec(tool.code, globals())
-            return globals()[tool.name]
+            frame = search_frame("__main__", name="__name__")
+            exec(tool.code, frame)
+            return frame[tool.name]
         except Exception as e:
-            raise Exception(f"Failed to add tool to module: {str(e)}")
-
-
-ToolRequestList = TypeVar("ToolRequestList", bound=list[ToolRequest])
+            raise Exception(f"Failed to add tool to module: {str(e)}") from e
 
 
 class ToolManagerResult(BaseModel):
@@ -99,11 +109,12 @@ class ToolManagerResult(BaseModel):
 
 
 class ToolManager:
-    def __init__(self, task_def: TaskDef):
+    def __init__(self, model: str, task_def: TaskDef):
+        self.model = model
         self.task_def = task_def
 
         self._agent = AgentDef(
-            model="openai:gpt-4o",
+            model=model,
             name="tool manager",
             system_prompt=f"""You are an expert at selecting and creating  tools for a given task. 
             Available tools are: {self.get_available_tools()}
@@ -144,15 +155,26 @@ class ToolManager:
         if isinstance(result.data, ToolManagerResult):
             if result.data.tool_request:
                 requested_tools = ToolSet(
-                    tools=[self._generate_tool(tool_request=tool_request) for tool_request in result.data.tool_request]
+                    tools=[
+                        self._generate_tool_sync(tool_request=tool_request) for tool_request in result.data.tool_request
+                    ]
                 )
                 return result.data.toolset | requested_tools
             return result.data.toolset
         return result.data
 
-    def _generate_tool(self, tool_request: ToolRequest) -> Callable:
+    async def _generate_tool(self, tool_request: ToolRequest) -> Callable:
         if isinstance(tool_request, ToolRequest):
-            tool_coder = ToolCoder(tool_request)
+            tool_coder = ToolCoder(model=self.model, tool_request=tool_request)
+            tool = await tool_coder.get_tool()
+            if isinstance(tool, Callable):
+                return tool
+            raise ValueError("Failed to generate tool")
+        raise ValueError("Invalid tool request")
+
+    def _generate_tool_sync(self, tool_request: ToolRequest) -> Callable:
+        if isinstance(tool_request, ToolRequest):
+            tool_coder = ToolCoder(model=self.model, tool_request=tool_request)
             tool = tool_coder.get_tool_sync()
             if isinstance(tool, Callable):
                 return tool
