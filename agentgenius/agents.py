@@ -62,8 +62,8 @@ class TypeField:
     @classmethod
     def serialize(cls, value: Type) -> str:
         """Serialize type to string representation"""
-        # if value is NoneType:
-        #     return "NoneType"
+        if value is NoneType:
+            return "NoneType"
         if isinstance(value, GenericAlias):
             origin = get_origin(value)
             args = get_args(value)
@@ -107,9 +107,9 @@ class TypeField:
 
 class AgentParams(BaseModel):
     result_type: Optional[Annotated[Type, TypeField]] = Field(default=str)
-    deps_type: Optional[Annotated[Type, TypeField]] = Field(default=NoneType)
+    deps_type: Optional[Annotated[Type, TypeField]] = Field(default_factory=lambda: NoneType)
     model_settings: Optional[Dict] = Field(default=None)
-    retries: int = Optional[Field(default=1)]
+    retries: Optional[int] = Field(default=1)
     result_tool_name: Optional[str] = Field(default="final_result")
     result_tool_description: Optional[str] = Field(default=None)
     result_retries: Optional[int] = Field(default=None)

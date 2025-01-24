@@ -1,36 +1,39 @@
-from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
 
+class ToolResult(BaseModel):
+    name: str = Field(..., description="Tool name")
+    result: str = Field(..., description="Tool result")
+
+
 class TaskItem(BaseModel):
-    """Individual task item in history"""
+    """Individual task item containing query and result"""
 
-    name: str
-    result: str
-    # timestamp: datetime = Field(default_factory=datetime.now)
-
-
-class HistoryItem(BaseModel):
-    """Single history item containing user query, tasks and final result"""
-
-    user_query: str
-    tasks: List[TaskItem] = Field(default_factory=list)
-    result: Optional[str] = None
-    # timestamp: datetime = Field(default_factory=datetime.now)
+    query: str = Field(..., description="Task query")
+    # tool_results: Optional[List[ToolResult]] = Field(default_factory=list, description="Tool results")
+    result: str = Field(..., description="Task result")
 
 
 class TaskHistory(BaseModel):
-    """Task history container with max items limit"""
+    """Single history item containing user query, tasks and final result"""
+
+    user_query: str = Field(..., description="User query")
+    tasks: List[TaskItem] = Field(default_factory=list, description="Task list")
+    final_result: Optional[str] = Field(default=None, description="Final result")
+
+
+class History(BaseModel):
+    """Container for task history items"""
 
     max_items: int = Field(default=10, description="Maximum number of history items to keep")
-    items: List[HistoryItem] = Field(default_factory=list, description="History items")
+    items: List[TaskHistory] = Field(default_factory=list, description="History items")
 
     def __len__(self) -> int:
         return len(self.items)
 
-    def __getitem__(self, index: int) -> HistoryItem:
+    def __getitem__(self, index: int) -> TaskHistory:
         return self.items[index]
 
     def __iter__(self):
@@ -39,22 +42,22 @@ class TaskHistory(BaseModel):
     def __str__(self):
         return str(self.items)
 
-    def append(self, item: HistoryItem) -> None:
+    def append(self, item: TaskHistory) -> None:
         """Add new item to history, removing oldest if max_items limit is reached"""
-        self.items.append(item)  # pylint: disable=no-member
+        self.items.append(item)
         if len(self) > self.max_items:
-            self.items.pop(0)  # pylint: disable=no-member
+            self.items.pop(0)
 
-    def get_current_item(self) -> Optional[HistoryItem]:
+    def get_current_item(self) -> Optional[TaskHistory]:
         """Get the most recent history item"""
         return self.items[-1] if self.items else None
 
-    def add_task(self, name: str, result: str) -> None:
+    def add_task(self, query: str, result: str) -> None:
         """Add a task to the current history item"""
         if current_item := self.get_current_item():
-            current_item.tasks.append(TaskItem(name=name, result=result))
+            current_item.tasks.append(TaskItem(query=query, result=result))
 
-    def set_result(self, result: str) -> None:
+    def set_final_result(self, result: str) -> None:
         """Set the final result for the current history item"""
         if current_item := self.get_current_item():
-            current_item.result = result
+            current_item.final_result = result

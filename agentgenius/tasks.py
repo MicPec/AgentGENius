@@ -1,14 +1,8 @@
 from typing import Optional
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-)
-from pydantic.dataclasses import dataclass
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai import Agent, Tool
 
-from agentgenius import tools
 from agentgenius.agents import AgentDef
 from agentgenius.tools import ToolDef, ToolSet
 
@@ -75,17 +69,10 @@ class Task(BaseModel):
         # task_def.agent_def = agent_def
         if agent_def is None:
             raise ValueError("AgentDef is required ether in constructor or in TaskDef")
-        # toolset = (
-        #     data["toolset"]
-        #     if "toolset" in data and data["toolset"] is not None
-        #     else task_def.toolset
-        #     if isinstance(task_def, TaskDef)
-        #     else task_def["toolset"]
-        #     if "toolset" in task_def
-        #     else None
-        # )
+
+        # merge toolsets
         t1 = task_def.toolset if isinstance(task_def, TaskDef) else []
-        t2 = data["toolset"] if "toolset" in data and data["toolset"] is not None else []
+        t2 = data["toolset"] if "toolset" in data and data["toolset"] else []
         toolset = t1 | t2
 
         super().__init__(task_def=task_def, agent_def=agent_def, toolset=toolset)

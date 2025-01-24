@@ -1,42 +1,56 @@
+from typing import Union
+
+from pydantic_ai import RunContext
+
 from agentgenius.agents import AgentDef, AgentParams
-from agentgenius.history import TaskHistory
+from agentgenius.history import History, TaskHistory
 from agentgenius.tasks import Task, TaskDef
 
 
 class Aggregator:
-    def __init__(self, model: str, history: TaskHistory):
-        self.history = history
+    def __init__(self, model: str):
         self.task_def = TaskDef(
             name="aggregator",
-            query="Analyze the task results and provide a final answer that addresses all parts of the user's query. Your answer should be clear, concise, and in a natural conversational style. Use the task results to provide accurate information.",
+            query="Respond to the user's query, using user's language, based on the task history. User query",
             priority=10,
             agent_def=AgentDef(
-                model=model,
                 name="aggregator",
+                model=model,
+                params=AgentParams(deps_type=Union[History, TaskHistory]),
                 system_prompt="""You are an expert at synthesizing information and providing clear, direct answers.
 Your task is to:
-1. Always respond in the language from the user's query ('user_query')
+1. Always respond in the language from the user's query 
 2. Look at all the task results in the history
 3. Combine their information into a coherent response
 4. Address all parts of the user's original query
-5. Format the response in a clear, natural way
-6. If there are any uncertainties or missing information, acknowledge them
-7. Keep the tone helpful and conversational""",
-                params=AgentParams(
-                    result_type=str,
-                    deps_type=TaskHistory,
-                ),
+5. Keep your response concise and natural
+
+For example, if the user asks "What's the weather and time?" and you have task results showing:
+- Time: 3:00 PM
+- Weather: 20°C and sunny
+You should respond: "It's 3:00 PM and the weather is sunny with a temperature of 20°C."
+
+Remember to:
+- Use natural language
+- Be concise
+- Include all relevant information
+- Match the user's language""",
             ),
         )
 
-        self.task = Task(task_def=self.task_def)
+        self.task = Task(task_def=self.task_def, agent_def=self.task_def.agent_def)
 
-    async def analyze(self) -> str:
+        @self.task._agent.system_prompt
+        def get_history(ctx: RunContext[TaskHistory]) -> str:
+            """Prepare query by adding task history to the query."""
+            return f"Task History: {ctx.deps}"
+
+    async def analyze(self, *, query: str, deps: TaskHistory) -> str:
         """Analyze task history and generate final response asynchronously."""
-        result = await self.task.run(self.history)
+        result = await self.task.run(query, deps=deps)
         return result.data if result and result.data else "I apologize, but I couldn't generate a proper response."
 
-    def analyze_sync(self) -> str:
+    def analyze_sync(self, *, query: str, deps: TaskHistory) -> str:
         """Analyze task history and generate final response synchronously."""
-        result = self.task.run_sync(self.history)
+        result = self.task.run_sync(query, deps=deps)
         return result.data if result and result.data else "I apologize, but I couldn't generate a proper response."

@@ -84,14 +84,6 @@ def open_json_file(path, mode='r'):
         except Exception as e:
             return str(e)
 
-    async def get_tool(self) -> str:
-        tool_coder = await self.task.run(self.tool_request)
-        try:
-            function = self.save_tool(tool_coder.data)
-            return function
-        except Exception as e:
-            return str(e)
-
     def save_tool(self, tool: ToolRequestResult) -> Callable:
         with open(self.temp_dir / f"{tool.name}.py", "w") as f:
             f.write(tool.code)
@@ -121,7 +113,9 @@ class ToolManager:
             Think what tools are needed to solve this task and propose them.
             Return ToolSet of existing tools that are applicable to the task,
             and ToolRequest if you need to create a new tools.
-            Created tools must be simple, universal and easy to reuse later.
+            Created tools must be simple, universal and easy to reuse later. 
+            Prefer existing tools over creating new ones.
+            If no tools are needed, return an empty ToolSet.
             """,
             params=AgentParams(
                 result_type=ToolManagerResult,
@@ -150,7 +144,7 @@ class ToolManager:
             return ToolSet(tools=result.data["tools"])
         return result.data
 
-    def analyze_sync(self, query: str | None = None) -> ToolSet:
+    def analyze_sync(self, *, query: str | None = None) -> ToolSet:
         result = self.task.run_sync(query)
         if isinstance(result.data, ToolManagerResult):
             if result.data.tool_request:

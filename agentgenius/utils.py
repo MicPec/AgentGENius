@@ -1,10 +1,9 @@
 import inspect
-from types import GenericAlias
-from typing import Any
 import json
 from functools import wraps
 from pathlib import Path
-from datetime import datetime
+from types import GenericAlias
+from typing import Any
 
 from pydantic import TypeAdapter
 
@@ -76,45 +75,43 @@ def save_task_history(filename: str = "task_history.json"):
                 if current_item:
                     history_item = {
                         "user_query": current_item.user_query,
-                        "tasks": [
-                            {
-                                "name": task.name,
-                                "result": task.result
-                            }
-                            for task in current_item.tasks
-                        ],
-                        "result": current_item.result
+                        "tasks": [{"query": task.query, "result": task.result} for task in current_item.tasks],
+                        "final_result": current_item.final_result,
                     }
-                    
-                    # Check if this item already exists in history
-                    exists = False
+
+                    # Update or append history item
+                    updated = False
                     for item in existing_history:
                         if item["user_query"] == history_item["user_query"]:
-                            item.update(history_item)
-                            exists = True
+                            item["tasks"] = history_item["tasks"]
+                            if history_item["final_result"]:
+                                item["final_result"] = history_item["final_result"]
+                            updated = True
                             break
-                    
-                    if not exists:
+
+                    if not updated:
                         existing_history.append(history_item)
-                
+
+                # Write updated history back to file
                 with open(history_file, "w") as f:
                     json.dump(existing_history, f, indent=2)
+
             except Exception as e:
-                print(f"Failed to save history: {e}")
+                print(f"Error saving task history: {e}")
 
         return wrapper
 
     return decorator
 
 
-def save_final_result(filename: str = "task_history.json"):
+def save_history(filename: str = "task_history.json"):
     """A decorator that saves the final result to the history file."""
 
     def decorator(func):
         @wraps(func)
-        def wrapper(self, result, *args, **kwargs):
+        def wrapper(self, *args, **kwargs):
             # Call the original function
-            func(self, result, *args, **kwargs)
+            result = func(self, *args, **kwargs)
 
             # Create history directory if it doesn't exist
             history_dir = Path("history")
@@ -132,14 +129,34 @@ def save_final_result(filename: str = "task_history.json"):
                     except json.JSONDecodeError:
                         existing_history = []
 
-                # Update the most recent history item with the final result
-                if existing_history:
-                    existing_history[-1]["result"] = result
+                # Get current history item
+                current_item = self.history.get_current_item()
+                if current_item:
+                    history_item = {
+                        "user_query": current_item.user_query,
+                        "tasks": [{"query": task.query, "result": task.result} for task in current_item.tasks],
+                        "final_result": result,
+                    }
 
+                    # Update or append history item
+                    updated = False
+                    for item in existing_history:
+                        if item["user_query"] == history_item["user_query"]:
+                            item.update(history_item)
+                            updated = True
+                            break
+
+                    if not updated:
+                        existing_history.append(history_item)
+
+                # Write updated history back to file
                 with open(history_file, "w") as f:
                     json.dump(existing_history, f, indent=2)
+
             except Exception as e:
-                print(f"Failed to save history: {e}")
+                print(f"Error saving final result: {e}")
+
+            return result
 
         return wrapper
 
