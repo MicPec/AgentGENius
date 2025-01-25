@@ -29,21 +29,27 @@ do not explain subtasks, just generate them.
 
 Examples:
 Query: What movies are playing today in my local cinema?
-Return: [TaskDef(name="find_location", agent_def=AgentDef(...), query="Identify the user's location")
+Expected output: [TaskDef(name="find_location", agent_def=AgentDef(...), query="Identify the user's location")
 TaskDef(name="search_web", agent_def=AgentDef(...), query="find cinema in user's location and schedule")]
 
 Query: Search for file in my home directory
-Return: [TaskDef(name="os_info", agent_def=AgentDef(...), query="identify user's operating system")
+Expected output: [TaskDef(name="os_info", agent_def=AgentDef(...), query="identify user's operating system")
 TaskDef(name="user_info", agent_def=AgentDef(...), query="get user's name and home directory")
 TaskDef(name="search_file", agent_def=AgentDef(...), query="use user's operating system to search for the file")]
 
 Query: Hello!
-Return: Hello! How can I help you?
+Expected output: Hello! How can I help you?
 """,
-            params=AgentParams(result_type=Union[TaskDefList, SimpleResponse], deps_type=History),
+            params=AgentParams(result_type=Union[TaskDefList], deps_type=History),
         )
 
-        self.task = Task(task_def=TaskDef(name="task_analysis", agent_def=self.agent_def, query="Analyze query"))
+        self.task = Task(
+            task_def=TaskDef(
+                name="task_analysis",
+                agent_def=self.agent_def,
+                query="Analyze query and generate a list of subtasks. Query",
+            )
+        )
 
         @self.task._agent.system_prompt
         def get_history(ctx: RunContext[History]) -> str:
@@ -56,7 +62,6 @@ Return: Hello! How can I help you?
                 ]
             else:
                 history = []
-            # return ctx.deps
             return f"Conversation history: {history}"
 
     async def analyze(self, *, query: str, deps: History) -> Union[SimpleResponse, TaskDefList]:

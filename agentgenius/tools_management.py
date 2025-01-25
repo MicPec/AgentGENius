@@ -136,18 +136,18 @@ class ToolManager:
         """Return a list of available tool names. DO NOT CALL THESE TOOLS.
         Just pass them to the other agents and let them to use them."""
         tools = ToolSet()
-        
+
         # Add builtin tools
         builtin_tools = load_builtin_tools()
         if builtin_tools:
             tools.add(builtin_tools)
-            
+
         # Add generated tools
         generated_tools = load_generated_tools()
         if generated_tools:
             tools.add(generated_tools)
-            
-        print(f"{tools=}", tools)
+
+        # print(f"{tools=}", tools)
         return tools.all()
 
     async def analyze(self) -> ToolSet:

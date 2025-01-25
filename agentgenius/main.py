@@ -4,7 +4,8 @@ from dotenv import load_dotenv
 from rich import print
 
 from agentgenius.aggregator import Aggregator
-from agentgenius.builtin_tools import *
+
+# from agentgenius.builtin_tools import *
 from agentgenius.history import History, TaskHistory, TaskItem
 from agentgenius.task_managment import QuestionAnalyzer, TaskRunner
 from agentgenius.tasks import TaskDef
@@ -94,5 +95,10 @@ class AgentGENius:
 
 if __name__ == "__main__":
     agentgenius = AgentGENius()
-    print(agentgenius.ask_sync("what time is it?, what is the weather now?"))
+    # print(agentgenius.ask_sync("what time is it?, what is the weather now?"))
+    print(
+        agentgenius.ask_sync(
+            "która godzina? rot13 this: Rkcrpgvznk nytbevguz vf n cbchyne grpuavdhr hfrq va tnzr gurbel gb svaq gur bcgvzny zbir sbe n cynlre."
+        )
+    )
     print(agentgenius.history)
