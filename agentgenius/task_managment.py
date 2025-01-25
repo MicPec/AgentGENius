@@ -18,12 +18,12 @@ class QuestionAnalyzer:
             name="task analyzer",
             system_prompt="""You are an expert at breaking down complex tasks into smaller, manageable pieces.
 Think step by step, what are the steps to solve this task and what information are needed to do it?
-Also take into account the conversation history. User can ask for information about the previous tasks.
+Also take into account the conversation history. User can ask for information about the previous task.
 Focus on creating clear, detailed, effective, and actionable subtasks that can be executed independently by the AI agent. Optimal is 2-3 subtasks.
 Keep in mind that the results of the previous subtasks are available for use in the current task, so do not duplicate tools. Task are sorted by priority.
 In the field 'query', put the command for an AI agent, not question.
 For easy queries (like translation, welcome message, or easy questions), you can return direct SimpleResponse to user taking history into account.,
-in the other case - list of TaskDef.
+in the other case - list of TaskDef, NOT SIMPLE RESPONSE.
 Be proactive with the task analysis, suggest next subtasks, and provide clear instructions,
 do not explain subtasks, just generate them.
 
@@ -56,6 +56,7 @@ Return: Hello! How can I help you?
                 ]
             else:
                 history = []
+            # return ctx.deps
             return f"Conversation history: {history}"
 
     async def analyze(self, *, query: str, deps: History) -> Union[SimpleResponse, TaskDefList]:
