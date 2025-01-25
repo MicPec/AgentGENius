@@ -93,7 +93,7 @@ class ToolSet(BaseModel):
         elif isinstance(other, Callable):
             return ToolSet(self.tools + [other])
         else:
-            return ToolSet(self.tools)
+            return self
 
     def add(self, tool: ToolType) -> None:
         if isinstance(tool, Callable):
