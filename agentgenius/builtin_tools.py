@@ -13,16 +13,6 @@ import requests
 # from .tools import ToolSet
 
 
-@cache
-def _get_builtin_tools() -> list[str]:
-    """Get list of all builtin tools"""
-    return [
-        func
-        for func in globals().values()
-        if callable(func) and func.__module__ == __name__ and not func.__name__.startswith("_")
-    ]
-
-
 def get_datetime(format: str = "%Y-%m-%d %H:%M:%S") -> str:
     """Get the current datetime as a string in the specified python format. '%Y-%m-%d %H:%M:%S'"""
     from datetime import datetime

@@ -5,10 +5,10 @@ from typing import Callable, Optional, TypeVar
 from pydantic import BaseModel, Field
 
 from agentgenius.agents import AgentDef, AgentParams
-from agentgenius.builtin_tools import _get_builtin_tools, get_installed_packages
+from agentgenius.builtin_tools import get_installed_packages
 from agentgenius.tasks import Task, TaskDef
 from agentgenius.tools import ToolSet
-from agentgenius.utils import load_generated_tools, search_frame
+from agentgenius.utils import load_builtin_tools, load_generated_tools, search_frame
 
 
 class ToolRequest(BaseModel):
@@ -135,13 +135,18 @@ class ToolManager:
     def get_available_tools(self):
         """Return a list of available tool names. DO NOT CALL THESE TOOLS.
         Just pass them to the other agents and let them to use them."""
-        # Get builtin tools
-        tools = ToolSet(_get_builtin_tools())
-
+        tools = ToolSet()
+        
+        # Add builtin tools
+        builtin_tools = load_builtin_tools()
+        if builtin_tools:
+            tools.add(builtin_tools)
+            
         # Add generated tools
         generated_tools = load_generated_tools()
         if generated_tools:
             tools.add(generated_tools)
+            
         print(f"{tools=}", tools)
         return tools.all()
 

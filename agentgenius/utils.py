@@ -205,3 +205,30 @@ def load_generated_tools() -> Dict[str, Any]:
             continue
 
     return tools
+
+
+def load_builtin_tools() -> Dict[str, Any]:
+    """Load all builtin tools from the builtin_tools module.
+    
+    Returns:
+        Dict[str, Any]: Dictionary mapping tool names to their function objects
+    """
+    tools = {}
+    
+    try:
+        # Import the builtin_tools module
+        from agentgenius import builtin_tools
+        
+        # Get all callable functions that don't start with _
+        for attr_name in dir(builtin_tools):
+            attr = getattr(builtin_tools, attr_name)
+            if (callable(attr) and not attr_name.startswith("_") 
+                and attr.__module__ == builtin_tools.__name__):
+                tools[attr_name] = attr
+                # Add to globals so search_frame can find it
+                globals()[attr_name] = attr
+                
+    except Exception as e:
+        print(f"Error loading builtin tools: {e}")
+        
+    return tools
