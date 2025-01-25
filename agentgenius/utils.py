@@ -1,9 +1,12 @@
+import importlib
 import inspect
 import json
+import sys
+import tempfile
 from functools import wraps
 from pathlib import Path
 from types import GenericAlias
-from typing import Any
+from typing import Any, Dict
 
 from pydantic import TypeAdapter
 
@@ -161,3 +164,44 @@ def save_history(filename: str = "task_history.json"):
         return wrapper
 
     return decorator
+
+
+def load_generated_tools() -> Dict[str, Any]:
+    """Load all generated tools from the temporary directory and add them to globals().
+
+    Returns:
+        Dict[str, Any]: Dictionary mapping tool names to their function objects
+    """
+    tools = {}
+    temp_dir = Path(tempfile.gettempdir()) / "agentgenius_tools"
+
+    if not temp_dir.exists():
+        return tools
+
+    for tool_file in temp_dir.glob("*.py"):
+        try:
+            # Create a unique module name
+            module_name = f"generated_tool_{tool_file.stem}"
+
+            # Load the module
+            spec = importlib.util.spec_from_file_location(module_name, str(tool_file))
+            if spec is None or spec.loader is None:
+                continue
+
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
+            spec.loader.exec_module(module)
+
+            # Get all functions from the module and add to globals
+            for attr_name in dir(module):
+                attr = getattr(module, attr_name)
+                if callable(attr) and not attr_name.startswith("_"):
+                    tools[attr_name] = attr
+                    # Add to globals so search_frame can find it
+                    globals()[attr_name] = attr
+
+        except Exception as e:
+            print(f"Error loading tool from {tool_file}: {e}")
+            continue
+
+    return tools

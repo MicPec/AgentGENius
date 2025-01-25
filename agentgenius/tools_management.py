@@ -8,7 +8,7 @@ from agentgenius.agents import AgentDef, AgentParams
 from agentgenius.builtin_tools import _get_builtin_tools, get_installed_packages
 from agentgenius.tasks import Task, TaskDef
 from agentgenius.tools import ToolSet
-from agentgenius.utils import search_frame
+from agentgenius.utils import load_generated_tools, search_frame
 
 
 class ToolRequest(BaseModel):
@@ -45,7 +45,7 @@ Requirements:
 4. Write a clear docstring with description, args, and returns
 5. Handle errors gracefully with try/except
 6. Follow PEP 8 style guide
-7. Use only these modules: {get_installed_packages()}
+7. Use ONLY these modules: {get_installed_packages()}
 8. The function should be self contained (all imports inside the function)
 9. Make sure the code is safe for user. NEVER delete any files or show secret information or execute any malicious code. Don't do anything illegal.
 
@@ -135,8 +135,15 @@ class ToolManager:
     def get_available_tools(self):
         """Return a list of available tool names. DO NOT CALL THESE TOOLS.
         Just pass them to the other agents and let them to use them."""
-        toolset = ToolSet(_get_builtin_tools())  # TODO: add generated tools
-        return toolset.all()
+        # Get builtin tools
+        tools = ToolSet(_get_builtin_tools())
+
+        # Add generated tools
+        generated_tools = load_generated_tools()
+        if generated_tools:
+            tools.add(generated_tools)
+        print(f"{tools=}", tools)
+        return tools.all()
 
     async def analyze(self) -> ToolSet:
         result = await self.task.run()
