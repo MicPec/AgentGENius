@@ -71,8 +71,8 @@ class Task(BaseModel):
             raise ValueError("AgentDef is required ether in constructor or in TaskDef")
 
         # merge toolsets
-        t1 = task_def.toolset if isinstance(task_def, TaskDef) else []
-        t2 = data["toolset"] if "toolset" in data and data["toolset"] else []
+        t1 = task_def.toolset if isinstance(task_def, TaskDef) else ToolSet()
+        t2 = data["toolset"] if "toolset" in data and data["toolset"] is not None else ToolSet()
         toolset = t1 | t2
 
         super().__init__(task_def=task_def, agent_def=agent_def, toolset=toolset)
