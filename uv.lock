@@ -19,6 +19,7 @@ dependencies = [
     { name = "pytest" },
     { name = "python-dotenv" },
     { name = "setuptools" },
+    { name = "simpleaudio" },
     { name = "streamlit" },
 ]
 
@@ -37,6 +38,7 @@ requires-dist = [
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "setuptools", specifier = ">=75.8.0" },
+    { name = "simpleaudio", specifier = ">=1.0.4" },
     { name = "streamlit", specifier = ">=1.41.1" },
 ]
 
@@ -1482,6 +1484,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/92/ec/089608b791d210aec
 wheels = [
     { url = "https://files.pythonhosted.org/packages/69/8a/b9dc7678803429e4a3bc9ba462fa3dd9066824d3c607490235c6a796be5a/setuptools-75.8.0-py3-none-any.whl", hash = "sha256:e3982f444617239225d675215d51f6ba05f845d4eec313da4418fdbb56fb27e3", size = 1228782 },
 ]
+
+[[package]]
+name = "simpleaudio"
+version = "1.0.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/94/1b/4dc29653733202b68c09d9c6ca085cf67ac54859ee860647ef21ac1ff3dc/simpleaudio-1.0.4.tar.gz", hash = "sha256:691c88649243544db717e7edf6a9831df112104e1aefb5f6038a5d071e8cf41d", size = 2042564 }
 
 [[package]]
 name = "six"

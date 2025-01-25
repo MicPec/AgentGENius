@@ -1,115 +1,94 @@
-import json
+#!/usr/bin/env python3
+"""Streamlit chat application using AgentGENius."""
 
-import nest_asyncio
-import pandas as pd
+import asyncio
+from typing import Optional
+
 import streamlit as st
 from dotenv import load_dotenv
-from pydantic_ai import RunContext
+from rich import print
+import logfire
 
-from agentgenius import AgentDef, Task, TaskDef
-from agentgenius.builtin_tools import get_datetime, get_location_by_ip, get_user_ip
-from agentgenius.tools import ToolSet
+from agentgenius.main import AgentGENius
 
-# Initialize environment
-nest_asyncio.apply()
+# Load environment variables and configure logging
 load_dotenv()
+logfire.configure(send_to_logfire="if-token-present")
 
-# Initialize session state
-if "messages" not in st.session_state:
+# Page config
+st.set_page_config(
+    page_title="AgentGENius Chat",
+    page_icon="💬",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+
+def initialize_session_state():
+    """Initialize session state variables."""
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    if "agent" not in st.session_state:
+        try:
+            st.session_state.agent = AgentGENius(model="openai:gpt-4o")
+        except Exception as e:
+            st.error(f"Failed to initialize agent: {str(e)}")
+            st.session_state.agent = None
+
+
+async def get_agent_response(prompt: str) -> str:
+    """Get response from the agent asynchronously.
+
+    Args:
+        prompt: User's input message
+
+    Returns:
+        Agent's response as string
+    """
+    try:
+        return await st.session_state.agent.ask(prompt)
+    except Exception as e:
+        print(f"Error getting response: {e}")
+        return f"I apologize, but I encountered an error: {str(e)}"
+
+
+def clear_chat():
+    """Clear chat history."""
     st.session_state.messages = []
-if "message_history" not in st.session_state:
-    st.session_state.message_history = []
-if "agent" in st.session_state:
-    del st.session_state.agent
-
-if "planner" not in st.session_state:
-    # Define a planner task
-    planner_task = Task(
-        task=TaskDef(name="planner", question="make a short plan how to archive this task", priority=1),
-        agent_def=AgentDef(
-            model="openai:gpt-4o",
-            name="planner",
-            system_prompt="""You are a planner. your goal is to make a step by step plan for other agents. 
-            Do not answer the user questions. Just make a very short plan how to do this. 
-            AlWAYS MAKE SURE TO ADD APPROPRIATE TOOLS TO THE PLAN. You can get the list of available tools by calling 'get_available_tools'.
-            Efficiently is a priority, so don't waste time on things that are not necessary.
-            LESS STEPS IS BETTER (up to 3 steps), so make it as short as possible.
-            Tell an agent to use the tools if available. Use the users language""",
-            params={
-                "result_type": Task,
-                "retries": 5,
-            },
-        ),
-        toolset=ToolSet([get_datetime, get_user_ip, get_location_by_ip]),
-    )
-    st.session_state.planner = planner_task
 
 
-def get_agent_stats():
-    """Get current planner task statistics"""
-    planner = st.session_state.planner
-    stats = {
-        "Task Name": [planner.task.name],
-        "Question": [planner.task.question],
-        "Priority": [planner.task.priority],
-        "Tools": [", ".join(tool.__name__ for tool in planner.toolset)],
-    }
-    return pd.DataFrame(stats)
+def main():
+    """Main application function."""
+    st.title("💬 AgentGENius Chat")
 
+    # Sidebar
+    with st.sidebar:
+        st.title("Settings")
+        if st.button("Clear Chat", key="clear"):
+            clear_chat()
 
-def display_sidebar():
-    """Display planner task statistics in sidebar"""
-    st.sidebar.title("🤖 Statistics")
-    stats_df = get_agent_stats()
+        st.markdown("---")
+        st.markdown("""
+        ### About
+        AgentGENius is an advanced AI assistant that can help you with:
+        - Answering questions
+        - Writing and analyzing code
+        - Solving problems
+        - And much more!
+        """)
 
-    st.sidebar.subheader("Planner Task Statistics")
-    # Display stats in a transposed table for better readability
-    st.sidebar.dataframe(
-        stats_df.T,
-        column_config={"0": st.column_config.TextColumn("Value", width="big")},
-        hide_index=False,
-        use_container_width=True,
-    )
+    # Initialize session state
+    initialize_session_state()
 
-    # Display available tools in a separate table
-    tools_data = [
-        {
-            "Tool": tool.__name__,
-            "Description": tool.function.__doc__.replace("\n", " ").replace("    ", "") or "No description available",
-        }
-        for tool in st.session_state.planner.toolset
-    ]
-    st.sidebar.subheader("Available Tools")
-    st.sidebar.dataframe(
-        pd.DataFrame(tools_data),
-        column_config={
-            "Tool": st.column_config.TextColumn("Tool", width="small"),
-            "Description": st.column_config.TextColumn("Description", width="medium"),
-        },
-        hide_index=True,
-        use_container_width=True,
-    )
+    # Check if agent is initialized
+    if not st.session_state.agent:
+        st.error("Failed to initialize the chat agent. Please check your configuration and try again.")
+        return
 
-
-def response_details(messages, usage):
-    tabs = st.tabs([f"{i+1}: {msg['kind']}" for i, msg in enumerate(messages)] + ["Usage Summary"])
-    messages.append(
-        {
-            "requests": usage.requests,
-            "request_tokens": usage.request_tokens,
-            "response_tokens": usage.response_tokens,
-            "total_tokens": usage.total_tokens,
-            "details": usage.details,
-        }
-    )
-    for tab, msg in zip(tabs, messages):
-        with tab:
-            st.write(msg)
-
-
-def display_chat():
-    """Display chat interface"""
-    st.title("AgentGENius Chat")
+    # Main chat interface
+    st.markdown("""
+    Welcome to AgentGENius Chat! Enter your message below to start the conversation.
+    """)
 
     # Display chat messages
     for message in st.session_state.messages:
@@ -117,51 +96,24 @@ def display_chat():
             st.markdown(message["content"])
 
     # Chat input
-    if prompt := st.chat_input("What would you like to know?"):
+    if prompt := st.chat_input("What would you like to discuss?", key="chat_input"):
         # Add user message to chat history
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # Get agent response
+        # Get AI response
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                response = st.session_state.planner.run_sync(prompt, message_history=st.session_state.message_history)
-                st.session_state.message_history += response.new_messages()
-                if len(st.session_state.message_history) > 20:
-                    st.session_state.message_history = st.session_state.message_history[-20:]
-
-                st.session_state.messages.append({"role": "assistant", "content": response.data})
-                st.markdown(response.data)
-                with st.expander("See detailed response"):
-                    response_details(json.loads(response.new_messages_json()), response.usage())
-
-
-def display_planner():
-    """Display planner interface"""
-    st.title("AgentGENius Planner")
-    st.write(st.session_state.messages)
-    if st.button("Run Planner"):
-        if st.session_state.messages:
-            last_user_message = st.session_state.messages[-2]["content"]
-        else:
-            last_user_message = "Hello"
-        result = st.session_state.planner.run_sync(last_user_message)
-        result_data = result.data
-        st.write(result_data)
-        st.write(result_data.run_sync().data)
-
-
-def main():
-    st.set_page_config(
-        page_title="AgentGENius Chat",
-        page_icon="🤖",
-        layout="wide",
-    )
-
-    display_sidebar()
-    display_chat()
-    display_planner()
+                try:
+                    # Run async function in sync context
+                    response = asyncio.run(get_agent_response(prompt))
+                    st.markdown(response)
+                    st.session_state.messages.append({"role": "assistant", "content": response})
+                except Exception as e:
+                    error_message = f"Error: {str(e)}"
+                    st.error(error_message)
+                    st.session_state.messages.append({"role": "assistant", "content": error_message})
 
 
 if __name__ == "__main__":

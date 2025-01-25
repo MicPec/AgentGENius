@@ -357,3 +357,26 @@ def get_user_operating_system() -> str:
         return platform.system()
     except Exception as e:
         return {"error": f"Error getting operating system: {str(e)}"}
+
+
+def open_with_default_application(file_path: str) -> None:
+    """
+    Execute command to open a file using the default application associated with its file type in the user's system.
+
+    Args:
+        file_path (str): The path to the file.
+    """
+    import os
+    import platform
+    import subprocess
+
+    try:
+        system_name = platform.system().lower()
+        if system_name == "darwin":  # macOS
+            subprocess.call(("open", file_path))
+        elif system_name == "windows":
+            os.startfile(file_path)
+        else:  # Assuming Linux or other Unix-like OS
+            subprocess.call(("xdg-open", file_path))
+    except Exception as e:
+        print(f"An error occurred: {e}")

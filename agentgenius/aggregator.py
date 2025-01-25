@@ -41,16 +41,16 @@ Remember to:
         self.task = Task(task_def=self.task_def, agent_def=self.task_def.agent_def)
 
         @self.task._agent.system_prompt
-        def get_history(ctx: RunContext[TaskHistory]) -> str:
+        def get_history(ctx: RunContext[History]) -> str:
             """Prepare query by adding task history to the query."""
-            return f"Task History: {ctx.deps}"
+            return f"History: {ctx.deps}"
 
-    async def analyze(self, *, query: str, deps: TaskHistory) -> str:
+    async def analyze(self, *, query: str, deps: History) -> str:
         """Analyze task history and generate final response asynchronously."""
         result = await self.task.run(query, deps=deps)
         return result.data if result and result.data else "I apologize, but I couldn't generate a proper response."
 
-    def analyze_sync(self, *, query: str, deps: TaskHistory) -> str:
+    def analyze_sync(self, *, query: str, deps: History) -> str:
         """Analyze task history and generate final response synchronously."""
         result = self.task.run_sync(query, deps=deps)
         return result.data if result and result.data else "I apologize, but I couldn't generate a proper response."

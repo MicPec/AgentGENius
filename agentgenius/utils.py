@@ -49,65 +49,6 @@ def search_frame(value: str, name: str = None) -> dict:
     raise ValueError(f"'{value}' not found")
 
 
-def save_task_history(filename: str = "task_history.json"):
-    """A decorator that saves task history to a JSON file after each task is processed."""
-
-    def decorator(func):
-        @wraps(func)
-        def wrapper(self, task_def, task_history, *args, **kwargs):
-            # Call the original function
-            func(self, task_def, task_history, *args, **kwargs)
-
-            # Create history directory if it doesn't exist
-            history_dir = Path("history")
-            history_dir.mkdir(exist_ok=True)
-
-            # Save history to JSON file
-            history_file = history_dir / filename
-            try:
-                # Load existing history if file exists
-                existing_history = []
-                if history_file.exists():
-                    try:
-                        with open(history_file, "r") as f:
-                            existing_history = json.load(f)
-                    except json.JSONDecodeError:
-                        existing_history = []
-
-                # Convert current history to JSON-serializable format
-                current_item = task_history.items[-1] if task_history.items else None
-                if current_item:
-                    history_item = {
-                        "user_query": current_item.user_query,
-                        "tasks": [{"query": task.query, "result": task.result} for task in current_item.tasks],
-                        "final_result": current_item.final_result,
-                    }
-
-                    # Update or append history item
-                    updated = False
-                    for item in existing_history:
-                        if item["user_query"] == history_item["user_query"]:
-                            item["tasks"] = history_item["tasks"]
-                            if history_item["final_result"]:
-                                item["final_result"] = history_item["final_result"]
-                            updated = True
-                            break
-
-                    if not updated:
-                        existing_history.append(history_item)
-
-                # Write updated history back to file
-                with open(history_file, "w") as f:
-                    json.dump(existing_history, f, indent=2)
-
-            except Exception as e:
-                print(f"Error saving task history: {e}")
-
-        return wrapper
-
-    return decorator
-
-
 def save_history(filename: str = "task_history.json"):
     """A decorator that saves the final result to the history file."""
 

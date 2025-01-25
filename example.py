@@ -22,7 +22,7 @@ def main():
     console.print("Type 'bye' or press Ctrl+C to quit\n")
 
     # Initialize agent
-    # agent = AgentGENius(model="ollama:granite3.1-dense:8b-instruct-q6_K")
+    # agent = AgentGENius(model="ollama:qwen2.5:14b")
     agent = AgentGENius(model="openai:gpt-4o")
 
     try:

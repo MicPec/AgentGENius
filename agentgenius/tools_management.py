@@ -32,7 +32,7 @@ class ToolCoder:
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         self.tool_request = tool_request
         self.task = Task(
-            task_def=TaskDef(name="tool_request", query="Create a tool: "),
+            task_def=TaskDef(name="tool_request", query="Create a tool that will solve this task"),
             agent_def=AgentDef(
                 model=model,
                 name="tool manager",
@@ -45,7 +45,7 @@ Requirements:
 4. Write a clear docstring with description, args, and returns
 5. Handle errors gracefully with try/except
 6. Follow PEP 8 style guide
-7. Use ONLY these modules: {get_installed_packages()}
+7. YOU CAN USE ONLY THESE MODULES: {get_installed_packages()}
 8. The function should be self contained (all imports inside the function)
 9. Make sure the code is safe for user. NEVER delete any files or show secret information or execute any malicious code. Don't do anything illegal.
 
@@ -55,8 +55,8 @@ ToolRequestResult:
 name: open_json_file
 code:
 def open_json_file(path, mode='r'):
-    import json
     # open JSON file in given path with given mode
+    import json
     with open(path, mode) as f:
         return json.load(f)
 """,
@@ -108,22 +108,20 @@ class ToolManager:
         self._agent = AgentDef(
             model=model,
             name="tool manager",
-            system_prompt=f"""You are an expert at selecting and creating  tools for a given task. 
-            Available tools are: {self.get_available_tools()}
-            Think what tools are needed to solve this task and propose them.
-            Return ToolSet of existing tools that are applicable to the task,
-            and ToolRequest if you need to create a new tools.
-            Created tools must be simple, universal and easy to reuse later. 
-            Prefer existing tools over creating new ones.
-            If no tools are needed, return an empty ToolSet.
-            """,
+            system_prompt="""You are an expert at selecting and creating  tools for a given task. 
+Think what tools are needed to solve this task and propose them.
+Return ToolSet of existing tools that are applicable to the task, and ToolRequest if you need to create a new tools.
+Created tools must be simple, universal and easy to reuse later. 
+Prefer existing tools over creating new ones.
+Prefer to use existing tools over creating new ones and builtin tools over generated ones.
+For many cases the best way is search the web for answers.
+If no tools are needed, return an empty ToolSet.""",
             params=AgentParams(
                 result_type=ToolManagerResult,
                 deps_type=TaskDef,
-                retries=2,
+                retries=3,
             ),
         )
-
         self.task = Task(
             task_def=TaskDef(
                 name="tool_manager",
@@ -132,23 +130,23 @@ class ToolManager:
             )
         )
 
-    def get_available_tools(self):
-        """Return a list of available tool names. DO NOT CALL THESE TOOLS.
-        Just pass them to the other agents and let them to use them."""
-        tools = ToolSet()
+        @self.task._agent.system_prompt  # pylint: disable=protected-access
+        async def get_available_tools():
+            """Return a list of available tool names."""
+            tools = ToolSet()
 
-        # Add builtin tools
-        builtin_tools = load_builtin_tools()
-        if builtin_tools:
-            tools.add(builtin_tools)
+            # Add builtin tools
+            builtin_tools = load_builtin_tools()
+            if builtin_tools:
+                tools.add(builtin_tools)
 
-        # Add generated tools
-        generated_tools = load_generated_tools()
-        if generated_tools:
-            tools.add(generated_tools)
+            # Add generated tools
+            generated_tools = load_generated_tools()
+            if generated_tools:
+                tools.add(generated_tools)
 
-        # print(f"{tools=}", tools)
-        return tools.all()
+            # print(f"{tools=}", tools)
+            return f"## Available tools:\n ### Builtin tools: {', '.join(builtin_tools.keys())}\n### Generated tools: {', '.join(generated_tools.keys())}"
 
     async def analyze(self) -> ToolSet:
         result = await self.task.run()
