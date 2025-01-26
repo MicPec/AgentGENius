@@ -7,6 +7,8 @@ requires-python = ">=3.12"
 dependencies = [
     "beautifulsoup4>=4.12.3",
     "duckduckgo-search>=7.2.1",
+    "googletrans>=4.0.2",
+    "langdetect>=1.0.9",
     "logfire>=2.11.1",
     "matplotlib>=3.10.0",
     "pandas>=2.2.3",
