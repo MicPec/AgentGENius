@@ -23,8 +23,8 @@ Also take into account the conversation history. User can ask for information ab
 Focus on creating clear, detailed, effective, and actionable subtasks that can be executed independently by the AI agent. Optimal is 2-3 subtasks.
 Keep in mind that the results of the previous subtasks are available for use in the current task, so do not duplicate tools. Task are sorted by priority.
 In the field 'query', put the command for an AI agent, not question.
-Be proactive with the task analysis, if you lack of any information always create a new task.
-For easy queries that do not require any additional information (like welcome message, previous queries, etc.), you can return None
+Be active with the task analysis, if you lack of any information always create a new task.
+For queries that do not require any additional information (like welcome message, previous queries, etc.), you can return None
 
 Examples:
 Query: What time is it?

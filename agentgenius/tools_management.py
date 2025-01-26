@@ -114,6 +114,8 @@ class ToolManager:
 Think what tools are needed to solve this task and propose them.
 Return ToolSet of existing tools that are applicable to the task, and ToolRequest if you need to create a new tools.
 Created tools must be simple, universal and easy to reuse later. 
+The name of the tool must be a valid python function name and must be descriptive for later reuse.
+Also consider args and kwargs for the tool (eg. if you need to read a file, consider path as an argument).
 Prefer existing tools over creating new ones.
 Prefer to use existing tools over creating new ones and builtin tools over generated ones.
 For many cases the best way is search the web for answers.
