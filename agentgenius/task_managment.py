@@ -23,9 +23,8 @@ Also take into account the conversation history. User can ask for information ab
 Focus on creating clear, detailed, effective, and actionable subtasks that can be executed independently by the AI agent. Optimal is 2-3 subtasks.
 Keep in mind that the results of the previous subtasks are available for use in the current task, so do not duplicate tools. Task are sorted by priority.
 In the field 'query', put the command for an AI agent, not question.
-Be proactive with the task analysis, if you lack of any information create a new task.
-For easy queries that do not require any additional information (like translation, welcome message, previous queries, etc.), you can return None
-
+Be proactive with the task analysis, if you lack of any information always create a new task.
+For easy queries that do not require any additional information (like welcome message, previous queries, etc.), you can return None
 
 Examples:
 Query: What time is it?
@@ -34,7 +33,7 @@ Expected output: [TaskDef(name="time_info", agent_def=AgentDef(...), query="get 
 Query: What movies are playing today in my local cinema?
 Expected output:
 [TaskDef(name="find_location", agent_def=AgentDef(...), query="Identify the user's location")
-TaskDef(name="search_web", agent_def=AgentDef(...), query="find cinema in user's location and schedule")]
+TaskDef(name="search_web", agent_def=AgentDef(model="gpt-4o-mini", name="web search", system_prompt="You are an expert in web search. You are provided with user's location. Use this information to find the most relevant web pages for the user's question."), query="find cinema in user's location and schedule")]
 
 Query: Search for file in my home directory
 Expected output:
@@ -73,8 +72,8 @@ Expected output: None
 
     async def analyze(self, *, query: str, deps: History) -> Union[SimpleResponse, TaskDefList]:
         result = await self.task.run(query, deps=deps)
-        if isinstance(result.data, str):
-            return result.data
+        if isinstance(result.data, NoneType):
+            return None
         return sorted(result.data, key=lambda x: x.priority)
 
     def analyze_sync(self, *, query: str, deps: History) -> Union[SimpleResponse, TaskDefList]:
@@ -96,7 +95,7 @@ Return clear, concise and detailed answer based on the information you have prov
         if task_def.agent_def is None:
             task_def.agent_def = self.agent_def
         task_def.agent_def.params = AgentParams(deps_type=TaskHistory)
-        self.task = Task(task_def=task_def, agent_def=task_def.agent_def, toolset=toolset)
+        self.task = Task(task_def=task_def, toolset=toolset)
 
         @self.task._agent.system_prompt
         def get_history(ctx: RunContext[TaskHistory]) -> str:

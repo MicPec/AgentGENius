@@ -39,15 +39,17 @@ class ToolCoder:
                 system_prompt=f"""You are an expert python developer.
 You are asked to create a new tool function that will be used by an AI agent.
 Requirements:
-1. Function should be focused and solve one specific task
-2. The function will be called with the arguments and kwargs specified in the ToolRequest
-3. Include type hints for parameters and return value
-4. Write a clear docstring with description, args, and returns
-5. Handle errors gracefully with try/except
-6. Follow PEP 8 style guide
-7. YOU CAN USE ONLY THESE MODULES: {get_installed_packages()}
-8. The function should be self contained (all imports inside the function)
-9. Make sure the code is safe for user. NEVER delete any files or show secret information or execute any malicious code. Don't do anything illegal.
+1. Function should be focused and solve one specific task but try to be as generic as possible
+2. Think about all possible scenarios and edge cases
+3. Do not include any fake or dummy data
+4. The function will be called with the arguments and kwargs specified in the ToolRequest
+5. Include type hints for parameters and return value
+6. Write a clear docstring with description, args, and returns
+7. Handle errors gracefully with try/except
+8. Follow PEP 8 style guide
+9. YOU CAN USE ONLY THESE MODULES: {get_installed_packages()}
+10. The function should be self contained (all imports inside the function)
+11. Make sure the code is safe for the user. NEVER delete any files or show secret information or execute any malicious code. Don't do anything illegal.
 
 Example:
 ToolRequest: ("tool_name": 'open_json_file', 'description': 'Open and read a JSON file', 'args': ('path',), 'kwargs': {{"mode": 'r'}})
@@ -150,8 +152,16 @@ If no tools are needed, return an empty ToolSet.""",
 
     async def analyze(self) -> ToolSet:
         result = await self.task.run()
-        if isinstance(result.data, dict) and "tools" in result.data:
-            return ToolSet(tools=result.data["tools"])
+        if isinstance(result.data, ToolManagerResult):
+            if result.data.tool_request:
+                requested_tools = ToolSet(
+                    tools=[
+                        await self._generate_tool(tool_request=tool_request)
+                        for tool_request in result.data.tool_request
+                    ]
+                )
+                return result.data.toolset | requested_tools
+            return result.data.toolset
         return result.data
 
     def analyze_sync(self, *, query: str | None = None) -> ToolSet:

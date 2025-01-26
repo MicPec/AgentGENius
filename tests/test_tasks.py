@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from agentgenius.agents import AgentDef, AgentParams
-from agentgenius.builtin_tools import get_datetime
+from agentgenius.builtin_tools import get_datetime, get_user_name
 from agentgenius.tasks import Task, TaskDef, ToolSet
 
 
@@ -113,7 +113,7 @@ class TestTask:
             toolset=new_toolset,
         )
         assert task.agent_def == new_agent
-        assert task.toolset == new_toolset
+        assert task.toolset == sample_toolset | new_toolset
 
     def test_serialization(self, basic_task_def):
         """Test JSON serialization and deserialization"""
@@ -131,3 +131,67 @@ class TestTask:
         assert task2.task_def == task.task_def
         assert isinstance(task2.agent_def, AgentDef)
         assert isinstance(task2.toolset, ToolSet)
+
+    def test_toolset_merging_edge_cases(self, basic_task_def):
+        """Test various edge cases for toolset merging"""
+        from agentgenius.builtin_tools import get_user_name  # Adding a different tool for testing
+
+        # Create a different toolset for testing
+        different_toolset = ToolSet([get_user_name])
+
+        # Case 1: Merging different toolsets
+        task = Task(task_def=basic_task_def, toolset=different_toolset)
+        assert task.toolset is not None
+        assert len(task.toolset) == len(basic_task_def.toolset) + len(different_toolset)
+
+        # Case 2: task_def has None toolset
+        basic_task_def.toolset = None
+        task = Task(task_def=basic_task_def, toolset=different_toolset)
+        assert task.toolset is not None
+        assert len(task.toolset) == len(different_toolset)
+
+        # Case 3: Constructor toolset is None
+        basic_task_def.toolset = different_toolset
+        task = Task(task_def=basic_task_def, toolset=None)
+        assert task.toolset is not None
+        assert len(task.toolset) == len(different_toolset)
+
+        # Case 4: Both toolsets are None
+        basic_task_def.toolset = None
+        task = Task(task_def=basic_task_def, toolset=None)
+        assert task.toolset is not None
+        assert len(task.toolset) == 0
+
+    def test_toolset_merging_with_dict_input(self, sample_agent_def):
+        """Test toolset merging when task_def is provided as a dict"""
+        from agentgenius.builtin_tools import get_datetime, get_user_name
+
+        # Create different toolsets for testing
+        toolset1 = ToolSet([get_datetime])
+        toolset2 = ToolSet([get_user_name])
+
+        # Create task_def as a dict
+        task_def_dict = {
+            "name": "TestTask",
+            "query": "Test query",
+            "priority": 1,
+            "agent_def": sample_agent_def,
+            "toolset": toolset1
+        }
+
+        # Case 1: Dict task_def with different toolset
+        task = Task(task_def=task_def_dict, toolset=toolset2)
+        assert task.toolset is not None
+        assert len(task.toolset) == len(toolset1) + len(toolset2)
+
+        # Case 2: Dict task_def with None toolset
+        task_def_dict["toolset"] = None
+        task = Task(task_def=task_def_dict, toolset=toolset2)
+        assert task.toolset is not None
+        assert len(task.toolset) == len(toolset2)
+
+        # Case 3: Dict task_def without toolset key
+        del task_def_dict["toolset"]
+        task = Task(task_def=task_def_dict, toolset=toolset2)
+        assert task.toolset is not None
+        assert len(task.toolset) == len(toolset2)

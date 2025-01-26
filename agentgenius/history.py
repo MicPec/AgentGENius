@@ -4,7 +4,8 @@ from pydantic import BaseModel, Field
 
 
 class ToolResult(BaseModel):
-    name: str = Field(..., description="Tool name")
+    tool: str = Field(..., description="Tool name")
+    args: str = Field(..., description="Tool arguments")
     result: str = Field(..., description="Tool result")
 
 
@@ -12,7 +13,7 @@ class TaskItem(BaseModel):
     """Individual task item containing query and result"""
 
     query: str = Field(..., description="Task query")
-    # tool_results: Optional[List[ToolResult]] = Field(default_factory=list, description="Tool results")
+    tool_results: Optional[List[ToolResult]] = Field(default_factory=list, description="Tool results")
     result: str = Field(..., description="Task result")
 
 

@@ -47,7 +47,42 @@ class AgentGENius:
                 tools = await tool_manager.analyze()
                 task = TaskRunner(model=self.model, task_def=task_def, toolset=tools)
                 task_result = await task.run(deps=task_history)
-                task_history.tasks.append(TaskItem(query=task_def.name, result=task_result.data))  # pylint: disable=no-member
+
+                # Extract tool results from task_result
+                tool_results = []
+                for msg in task_result._all_messages:
+                    if msg.kind == "response" and hasattr(msg, "parts"):
+                        for part in msg.parts:
+                            if hasattr(part, "tool_name"):
+                                # Find the corresponding tool return
+                                tool_return = next(
+                                    (
+                                        ret.parts[0].content
+                                        for ret in task_result._all_messages
+                                        if ret.kind == "request"
+                                        and hasattr(ret, "parts")
+                                        and hasattr(ret.parts[0], "tool_call_id")
+                                        and ret.parts[0].tool_call_id == part.tool_call_id
+                                    ),
+                                    None,
+                                )
+                                if tool_return:
+                                    print(part.args)
+                                    tool_results.append(
+                                        {
+                                            "tool": part.tool_name,
+                                            "args": str(part.args.args_json)
+                                            if hasattr(part.args, "args_json")
+                                            else str(part.args.args_dict)
+                                            if hasattr(part.args, "args_dict")
+                                            else None,
+                                            "result": str(tool_return) if tool_return is not None else "",
+                                        }
+                                    )
+
+                task_history.tasks.append(  # pylint: disable=no-member
+                    TaskItem(query=task_def.name, result=task_result.data, tool_results=tool_results)
+                )
 
         # Get final result
         aggregator = Aggregator(model=self.model)
@@ -76,21 +111,63 @@ class AgentGENius:
                 tools = tool_manager.analyze_sync()
                 task = TaskRunner(model=self.model, task_def=task_def, toolset=tools)
                 task_result = task.run_sync(deps=task_history)
-                task_history.tasks.append(TaskItem(query=task_def.name, result=task_result.data))  # pylint: disable=no-member
+
+                # Extract tool results from task_result
+                tool_results = self._extract_tool_results(task_result)
+                task_history.tasks.append(  # pylint: disable=no-member
+                    TaskItem(query=task_def.name, result=task_result.data, tool_results=tool_results)
+                )
 
         # Get final result
         aggregator = Aggregator(model=self.model)
         final_result = aggregator.analyze_sync(query=query, deps=self.history)
 
-        # Update histories
+        # Update history
         task_history.final_result = final_result
         return final_result
 
+    def _extract_tool_results(self, task_result):
+        # Extract tool results from task_result
+        tool_results = []
+        for msg in task_result._all_messages:
+            if msg.kind == "response" and hasattr(msg, "parts"):
+                for part in msg.parts:
+                    if hasattr(part, "tool_name"):
+                        # Find the corresponding tool return
+                        tool_return = next(
+                            (
+                                ret.parts[0].content
+                                for ret in task_result._all_messages
+                                if ret.kind == "request"
+                                and hasattr(ret, "parts")
+                                and hasattr(ret.parts[0], "tool_call_id")
+                                and ret.parts[0].tool_call_id == part.tool_call_id
+                            ),
+                            None,
+                        )
+                        if tool_return:
+                            tool_results.append(
+                                {
+                                    "tool": part.tool_name,
+                                    "args": str(part.args.args_json)
+                                    if hasattr(part.args, "args_json")
+                                    else str(part.args.args_dict)
+                                    if hasattr(part.args, "args_dict")
+                                    else "",
+                                    "result": str(tool_return) if tool_return is not None else "",
+                                }
+                            )
+        return tool_results
+
 
 if __name__ == "__main__":
-    agentgenius = AgentGENius()
-    query = "decode this message in rot13: Rkcrpgvznk nytbevguz vf n cbchyne grpuavdhr hfrq va tnzr gurbel gb svaq gur bcgvzny zbir sbe n cynlre."
-    # query = "Hello. How are you?"
-    query = "What's the current time?"
-    print(agentgenius.ask_sync(query))
-    print(agentgenius.history)
+    import asyncio
+
+    async def main():
+        agentgenius = AgentGENius()
+        query = "What's my operating system?"
+        result = await agentgenius.ask(query)
+        print(result)
+        print(agentgenius.history)
+
+    asyncio.run(main())

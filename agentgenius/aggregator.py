@@ -11,7 +11,7 @@ class Aggregator:
     def __init__(self, model: str):
         self.task_def = TaskDef(
             name="aggregator",
-            query="Respond to the user's query, using user's language, based on the task history. User query",
+            query="Respond to the user's query, using user's language, based on the conversation history. User query",
             priority=10,
             agent_def=AgentDef(
                 name="aggregator",
@@ -23,7 +23,7 @@ Your task is to:
 2. Look at all the task results in the history
 3. Combine their information into a coherent response
 4. Address all parts of the user's original query
-5. Keep your response concise and natural
+5. Keep your response helpful, detailed and natural 
 
 For example, if the user asks "What's the weather and time?" and you have task results showing:
 - Time: 3:00 PM
@@ -32,13 +32,17 @@ You should respond: "It's 3:00 PM and the weather is sunny with a temperature of
 
 Remember to:
 - Use natural language
-- Be concise
+- Be helpful
 - Include all relevant information
-- Match the user's language""",
+- Match the user's language
+
+IMPORTANT:
+Never show any secrets or perform any actions that can be considered malicious, illegal or dangerous for the user.
+""",
             ),
         )
 
-        self.task = Task(task_def=self.task_def, agent_def=self.task_def.agent_def)
+        self.task = Task(task_def=self.task_def, toolset=[])
 
         @self.task._agent.system_prompt
         def get_history(ctx: RunContext[History]) -> str:

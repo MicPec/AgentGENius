@@ -71,7 +71,14 @@ class Task(BaseModel):
             raise ValueError("AgentDef is required ether in constructor or in TaskDef")
 
         # merge toolsets
-        t1 = task_def.toolset if isinstance(task_def, TaskDef) else ToolSet()
+        t1 = (
+            task_def.toolset
+            if isinstance(task_def, TaskDef)
+            else task_def.get("toolset")
+            if isinstance(task_def, dict)
+            else None
+        )
+        t1 = t1 if t1 is not None else ToolSet()
         t2 = data["toolset"] if "toolset" in data and data["toolset"] is not None else ToolSet()
         toolset = t1 | t2
 
@@ -97,16 +104,30 @@ class Task(BaseModel):
     def _prepare_tools(self, t: list) -> list[Tool]:
         result = []
         for tool in t:
-            result.append(Tool(tool.function))
+            try:
+                if hasattr(tool, 'function'):
+                    result.append(Tool(tool.function))
+                elif callable(tool):
+                    result.append(Tool(tool))
+            except Exception as e:
+                print(f"Failed to prepare tool {tool}: {str(e)}")
         return result
 
     def register_tool(self, tool: ToolDef):
         """Registers a tool to the task's agent dynamically."""
-        self._agent._register_tool(Tool(tool.function))  # pylint: disable=protected-access
-        self.toolset.add(tool.name)  # pylint: disable=no-member
+        try:
+            if hasattr(tool, 'function'):
+                self._agent._register_tool(Tool(tool.function))  # pylint: disable=protected-access
+            elif callable(tool):
+                self._agent._register_tool(Tool(tool))  # pylint: disable=protected-access
+            self.toolset.add(tool)  # pylint: disable=no-member
+        except Exception as e:
+            print(f"Failed to register tool {tool}: {str(e)}")
 
     def register_toolset(self, toolset: ToolSet):
         """Registers toolset to the task's agent dynamically."""
+        if not toolset:
+            return
         for tool in toolset:
             self.register_tool(tool)
 
@@ -114,7 +135,13 @@ class Task(BaseModel):
         query = self.task_def.query  # pylint: disable=no-member
         if self.task_def.query and args:  # pylint: disable=no-member
             query = f"{self.task_def.query}: {args[0]}"  # pylint: disable=no-member
-        return await self._agent.run(query, **kwargs)
+        try:
+            return await self._agent.run(query, **kwargs)
+        except Exception as e:
+            print(f"Task execution failed: {str(e)}")
+            if hasattr(e, '__cause__') and e.__cause__:
+                print(f"Cause: {str(e.__cause__)}")
+            raise
 
     def run_sync(self, *args, **kwargs):
         query = self.task_def.query  # pylint: disable=no-member
@@ -137,19 +164,3 @@ class TaskList(BaseModel):
 
     def sorted(self):
         return sorted(self.tasks)
-
-
-# @classmethod
-# def __get_pydantic_core_schema__(cls, source: any, handler: GetCoreSchemaHandler) -> core_schema.CoreSchema:
-#     instance_schema = core_schema.is_instance_schema(cls)
-
-#     args = get_args(source)
-#     if args:
-#         # replace the type and rely on Pydantic to generate the right schema
-#         # for `Sequence`
-#         sequence_t_schema = handler.generate_schema(list[args[0]])
-#     else:
-#         sequence_t_schema = handler.generate_schema(list)
-
-#     non_instance_schema = core_schema.no_info_after_validator_function(TaskList, sequence_t_schema)
-#     return core_schema.union_schema([instance_schema, non_instance_schema])

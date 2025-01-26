@@ -1,16 +1,8 @@
 import json
 import os
-from datetime import datetime
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-import time
-from functools import cache
-import requests
-
-
-# from .agents import AgentStore
-# from .config import config
-# from .tools import ToolSet
 
 
 def get_datetime(format: str = "%Y-%m-%d %H:%M:%S") -> str:
@@ -68,7 +60,7 @@ def get_weather_forecast(latitude: float, longitude: float) -> str:
     if response.status_code == 200:
         weather_data = response.json()
         return weather_data
-        return "Error: Unable to retrieve weather data"
+    return "Error: Unable to retrieve weather data"
 
 
 def search_web(query: str) -> str:
@@ -99,6 +91,7 @@ def scrape_webpage(url: str, selector: Optional[str] = None, retry_count: int = 
     }
 
     from bs4 import BeautifulSoup
+    import requests
 
     def clean_text(text: str) -> str:
         """Clean extracted text by removing extra whitespace and normalizing line breaks."""
@@ -359,12 +352,15 @@ def get_user_operating_system() -> str:
         return {"error": f"Error getting operating system: {str(e)}"}
 
 
-def open_with_default_application(file_path: str) -> None:
+def open_with_default_application(file_path: str) -> dict:
     """
     Execute command to open a file using the default application associated with its file type in the user's system.
 
     Args:
         file_path (str): The path to the file.
+
+    Returns:
+        dict: A dictionary containing 'success' boolean and optional 'error' message
     """
     import os
     import platform
@@ -373,10 +369,59 @@ def open_with_default_application(file_path: str) -> None:
     try:
         system_name = platform.system().lower()
         if system_name == "darwin":  # macOS
-            subprocess.call(("open", file_path))
+            result = subprocess.run(["open", file_path], capture_output=True, text=True)
         elif system_name == "windows":
             os.startfile(file_path)
+            result = subprocess.CompletedProcess(args=[], returncode=0)
         else:  # Assuming Linux or other Unix-like OS
-            subprocess.call(("xdg-open", file_path))
+            result = subprocess.run(["xdg-open", file_path], capture_output=True, text=True)
+
+        if result.returncode == 0:
+            return {"success": True}
+        else:
+            return {
+                "success": False,
+                "error": f"Command failed with return code {result.returncode}. Error: {result.stderr}",
+            }
+
     except Exception as e:
-        print(f"An error occurred: {e}")
+        return {"success": False, "error": str(e)}
+
+
+if __name__ == "__main__":
+    # Test each function
+    print("Testing scrape_webpage:")
+    print(scrape_webpage("https://example.com"))
+
+    print("\nTesting read_file:")
+    print(read_file("test.txt"))
+
+    print("\nTesting write_file:")
+    print(write_file("test_output.txt", "This is a test content"))
+
+    print("\nTesting list_directory:")
+    print(list_directory("."))
+
+    print("\nTesting read_json:")
+    print(read_json("test.json"))
+
+    print("\nTesting write_json:")
+    print(write_json("test_output.json", {"key": "value"}))
+
+    print("\nTesting extract_text_from_url:")
+    print(extract_text_from_url("https://example.com"))
+
+    print("\nTesting search_text:")
+    print(search_text("This is a sample text for searching.", "sample"))
+
+    print("\nTesting get_file_info:")
+    print(get_file_info("README.md"))
+
+    print("\nTesting get_home_directory:")
+    print(get_home_directory())
+
+    print("\nTesting get_user_operating_system:")
+    print(get_user_operating_system())
+
+    print("\nTesting open_with_default_application:")
+    print(open_with_default_application("README.md"))
