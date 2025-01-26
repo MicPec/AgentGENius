@@ -2,12 +2,13 @@
 """Streamlit chat application using AgentGENius."""
 
 import asyncio
-from typing import Optional
+import json
+from pathlib import Path
 
+import logfire
 import streamlit as st
 from dotenv import load_dotenv
 from rich import print
-import logfire
 
 from agentgenius.main import AgentGENius
 
@@ -18,7 +19,7 @@ logfire.configure(send_to_logfire="if-token-present")
 # Page config
 st.set_page_config(
     page_title="AgentGENius Chat",
-    page_icon="💬",
+    page_icon=":robot_face:",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -57,40 +58,41 @@ def clear_chat():
     st.session_state.messages = []
 
 
-def display_task_statistics():
-    """Display task statistics in the sidebar."""
-    if not st.session_state.agent or not st.session_state.agent.history:
+def display_task_statistics(history_file: str = "task_history.json"):
+    """Display task statistics from history file"""
+    history_path = Path("history") / history_file
+    if not history_path.exists():
+        st.error(f"History file {history_file} not found")
         return
 
-    st.markdown("### Last Query Statistics")
+    history_data = json.loads(history_path.read_text(encoding="utf-8"))
+    st.markdown(f"**History Length:** {len(history_data['items'])} / {history_data['max_items']} items")
 
-    # Get the most recent task history
-    current_item = st.session_state.agent.history.get_current_item()
-    if not current_item:
-        st.info("No queries yet.")
-        return
+    # History selection
+    history_items = [f"{i + 1}. {item['user_query']}" for i, item in enumerate(history_data["items"])][::-1]
+    selected_index = st.selectbox("Select query from history:", history_items)
+    if selected_index:
+        current_item = history_data["items"][int(selected_index.split(".")[0]) - 1]
 
-    # Display query
-    st.markdown(f"**Query:** {current_item.user_query}")
+        st.markdown("---")
+        st.markdown(f"**User Query:** {current_item['user_query']}")
+        if current_item["tasks"]:
+            st.markdown(f"**Number of subtasks:** {len(current_item['tasks'])}")
+            for task in current_item["tasks"]:
+                with st.expander(f"Task: {task['query']}"):
+                    st.markdown(f"**Result:** {task['result']}\n\n---")
+                    if task["tool_results"]:
+                        st.markdown("**Tools used:**")
 
-    # Display task statistics
-    if current_item.tasks:
-        st.markdown(f"**Number of subtasks:** {len(current_item.tasks)}")
-        for task in current_item.tasks:
-            with st.expander(f"Task: {task.query}"):
-                st.markdown(f"**Result:** {task.result}")
-                if task.tool_results:
-                    st.markdown("**Tools used:**")
-
-                    tabs = st.tabs([f"🔧 {tool.tool}" for tool in task.tool_results])
-                    for tab, tool in zip(tabs, task.tool_results):
-                        with tab:
-                            st.markdown("**Arguments:**")
-                            st.code(tool.args, language="json")
-                            st.markdown("**Result:**")
-                            st.code(tool.result)
-    else:
-        st.info("Direct response (no subtasks)")
+                        tabs = st.tabs([f"🔧 {tool['tool']}" for tool in task["tool_results"]])
+                        for tab, tool in zip(tabs, task["tool_results"]):
+                            with tab:
+                                st.markdown("**Arguments:**")
+                                st.code(tool["args"], language="json")
+                                st.markdown("**Result:**")
+                                st.code(tool["result"])
+        else:
+            st.info("Direct response (no subtasks)")
 
 
 def main():

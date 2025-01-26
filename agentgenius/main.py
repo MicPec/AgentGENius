@@ -67,7 +67,6 @@ class AgentGENius:
                                     None,
                                 )
                                 if tool_return:
-                                    print(part.args)
                                     tool_results.append(
                                         {
                                             "tool": part.tool_name,
@@ -153,8 +152,8 @@ class AgentGENius:
                                     if hasattr(part.args, "args_json")
                                     else str(part.args.args_dict)
                                     if hasattr(part.args, "args_dict")
-                                    else "",
-                                    "result": str(tool_return) if tool_return is not None else "",
+                                    else None,
+                                    "result": str(tool_return) if tool_return is not None else None,
                                 }
                             )
         return tool_results
