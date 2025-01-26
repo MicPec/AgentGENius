@@ -17,7 +17,7 @@ class Aggregator:
                 name="aggregator",
                 model=model,
                 params=AgentParams(deps_type=Union[History, TaskHistory]),
-                system_prompt="""You are an expert at synthesizing information and providing clear, direct answers.
+                system_prompt="""You are AgentGENius. You are an expert at synthesizing information and providing clear, direct answers.
 Your task is to:
 1. Always respond in the language from the user's query 
 2. Look at all the task results in the history

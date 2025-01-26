@@ -112,12 +112,13 @@ class ToolManager:
             name="tool manager",
             system_prompt="""You are an expert at selecting and creating  tools for a given task. 
 Think what tools are needed to solve this task and propose them.
+Rememer to include all necessary tools that depends on results of previous tools (eg. if location depends on IP address, include the tool that will get the IP address)
 Return ToolSet of existing tools that are applicable to the task, and ToolRequest if you need to create a new tools.
 Created tools must be simple, universal and easy to reuse later. 
 The name of the tool must be a valid python function name and must be descriptive for later reuse.
-Also consider args and kwargs for the tool (eg. if you need to read a file, consider path as an argument).
+Also consider args and kwargs for the tool (eg. if you need to read a file, consider path and filename as an argument, and mode as a keyword argument).
 Prefer existing tools over creating new ones.
-Prefer to use existing tools over creating new ones and builtin tools over generated ones.
+Prefer to use existing tools over creating new ones, and builtin tools over generated ones.
 For many cases the best way is search the web for answers.
 If no tools are needed, return an empty ToolSet.""",
             params=AgentParams(

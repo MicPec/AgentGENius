@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional
 
 
 def get_datetime(format: str = "%Y-%m-%d %H:%M:%S") -> str:
-    """Get the current datetime as a string in the specified python format. '%Y-%m-%d %H:%M:%S'"""
+    """Get the current datetime as a string in the specified python format."""
     from datetime import datetime
 
     return datetime.now().strftime(format)
