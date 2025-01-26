@@ -103,7 +103,7 @@ def scrape_webpage(url: str, selector: Optional[str] = None, retry_count: int = 
         "Cache-Control": "max-age=0",
     }
 
-    from datetime import time
+    import time
 
     import requests
     from bs4 import BeautifulSoup
@@ -391,7 +391,7 @@ def open_with_default_application(file_path: str) -> dict:
         if system_name == "darwin":  # macOS
             result = subprocess.run(["open", file_path], capture_output=True, text=True)
         elif system_name == "windows":
-            os.startfile(file_path)
+            os.startfile(file_path)  # pylint: disable=no-member
             result = subprocess.CompletedProcess(args=[], returncode=0)
         else:  # Assuming Linux or other Unix-like OS
             result = subprocess.run(["xdg-open", file_path], capture_output=True, text=True)

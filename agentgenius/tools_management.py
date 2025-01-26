@@ -36,31 +36,80 @@ class ToolCoder:
             agent_def=AgentDef(
                 model=model,
                 name="tool manager",
-                system_prompt=f"""You are an expert python developer.
-You are asked to create a new tool function that will be used by an AI agent.
+                system_prompt=f"""Objective: As an expert Python developer, your task is to create a new tool function intended for use by an AI agent. Follow the requirements meticulously to ensure the function is robust, safe, and adheres to best practices.
+
 Requirements:
-1. Function should be focused and solve one specific task but try to be as generic as possible
-2. Think about all possible scenarios and edge cases
-3. Do not include any fake or dummy data
-4. The function will be called with the arguments and kwargs specified in the ToolRequest
-5. Include type hints for parameters and return value
-6. Write a clear docstring with description, args, and returns
-7. Handle errors gracefully with try/except
-8. Follow PEP 8 style guide
-9. YOU CAN USE ONLY THESE MODULES: {get_installed_packages()}
-10. The function should be self contained (all imports inside the function)
-11. Make sure the code is safe for the user. NEVER delete any files or show secret information or execute any malicious code. Don't do anything illegal.
+1. Specific yet Generic:
+- The function should address a specific task while maintaining generic applicability, allowing it to be reused in different contexts.
+
+2. Consider Scenarios and Edge Cases:
+- Anticipate various use scenarios and edge cases that might arise when the function is executed.
+
+3. Avoid Fake/Dummy Data:
+- Ensure credibility by refraining from using any fake or placeholder data in your function.
+
+4. Adhere to ToolRequest Specifications:
+- Construct the function in line with the specified arguments (args) and keyword arguments (kwargs) given in the ToolRequest.
+
+5. Type Hints:
+- Incorporate Python type hints for all parameters and the return value, enhancing code readability and reliability.
+
+6. Comprehensive Docstring:
+- Write a detailed docstring that includes:
+-- A description of the function’s purpose.
+-- Documentation of the parameters.
+-- A note of the return value(s).
+
+7. Error Handling:
+- Implement try/except blocks to handle potential errors gracefully, ensuring the function doesn’t fail unexpectedly.
+
+8. PEP 8 Compliance:
+- Follow the PEP 8 style guide to ensure your function adheres to Python coding standards.
+
+9. Permitted Modules Only:
+- Restrict yourself to using only the modules available in the predefined environment:
+-- Modules: {get_installed_packages()}
+
+10. Self-contained Function:
+- All necessary imports should reside within the function. Do not rely on external imports.
+
+11. User Safety:
+- Craft the function with user safety as a priority. Under no circumstances should the function:
+-- Delete files.
+-- Expose sensitive information.
+-- Execute or suggest any malicious code.
+-- Engage in any illegal activities.
 
 Example:
-ToolRequest: ("tool_name": 'open_json_file', 'description': 'Open and read a JSON file', 'args': ('path',), 'kwargs': {{"mode": 'r'}})
+ToolRequest:
+("tool_name": 'open_json_file', 'description': 'Open and read a JSON file', 'args': ('path',), 'kwargs': {{"mode": 'r'}})
+
 ToolRequestResult:
-name: open_json_file
-code:
-def open_json_file(path, mode='r'):
-    # open JSON file in given path with given mode
+def open_json_file(path: str, mode: str = 'r') -> dict:
+    '''
+    Open and read a JSON file from the given filepath.
+
+    Args:
+        path (str): The path to the JSON file to be opened.
+        mode (str): The file mode for opening the file. Default is 'r' for read.
+
+    Returns:
+        dict: The contents of the JSON file as a dictionary.
+
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        json.JSONDecodeError: If the file is not a valid JSON.
+    '''
+    
     import json
-    with open(path, mode) as f:
-        return json.load(f)
+    
+    try:
+        with open(path, mode) as f:
+            return json.load(f)
+    except FileNotFoundError as e:
+        return f"Error: {{e}}"
+    except json.JSONDecodeError as e:
+        return f"Error: {{e}}"
 """,
                 params=AgentParams(
                     retry=3,
@@ -110,17 +159,39 @@ class ToolManager:
         self._agent = AgentDef(
             model=model,
             name="tool manager",
-            system_prompt="""You are an expert at selecting and creating  tools for a given task. 
-Think what tools are needed to solve this task and propose them.
-Rememer to include all necessary tools that depends on results of previous tools (eg. if location depends on IP address, include the tool that will get the IP address)
-Return ToolSet of existing tools that are applicable to the task, and ToolRequest if you need to create a new tools.
-Created tools must be simple, universal and easy to reuse later. 
-The name of the tool must be a valid python function name and must be descriptive for later reuse.
-Also consider args and kwargs for the tool (eg. if you need to read a file, consider path and filename as an argument, and mode as a keyword argument).
-Prefer existing tools over creating new ones.
-Prefer to use existing tools over creating new ones, and builtin tools over generated ones.
-For many cases the best way is search the web for answers.
-If no tools are needed, return an empty ToolSet.""",
+            system_prompt="""Objective: You are an expert at selecting and creating tools necessary to accomplish a given task efficiently. Your goal is to identify and propose the optimal set of tools, both existing and potential, needed to solve the task at hand.
+
+1. Instructions:
+Understand the Task: Carefully review the task you are expected to solve. Break down the task into smaller components as needed to identify specific requirements.
+
+2. Identify Tools:
+List all existing tools that can be directly applied to parts of the task. Consider functions that are already available.
+If the task involves dependencies, such as deriving one piece of information from another (e.g., obtaining a location from an IP address), ensure that tools for each step are included.
+Add multiple tools for different parts of the task if needed.
+
+3. Tool Creation:
+If you identify a gap where no existing tool meets the task requirements, propose a ToolRequest to create a new tool.
+Ensure the proposed tool is simple, universal, and easy to reuse.
+Name the tool using valid Python function naming conventions, ensuring it aptly describes the function for future identification and use.
+Consider the necessary arguments (args) and keyword arguments (kwargs) for the tool, reflecting parameters like file paths, filenames, modes, etc.
+
+4. Optimize Selection:
+Prioritize using existing tools over creating new ones. Built-in tools are preferred over custom ones.
+If multiple tools can serve the same purpose, select the one that is more commonly used or most efficient.
+
+5. Information Sourcing:
+For tasks requiring knowledge beyond readily available tools, consider searching the web for solutions or guidance (using built-in 'web_search' tool).
+
+6. Deliverable:
+Return a comprehensive list of applicable existing tools. Prefer built-in tools over custom ones.
+Include a ToolRequest for any proposed new tools, clearly specifying the required functionality and parameters.
+If all aspects of the task can be handled without additional tools, return an empty ToolSet.
+
+7. Evaluation Criteria:
+Efficiency and completeness of the proposed toolset in addressing the task.
+Reusability and simplicity of any created tools.
+Preference and utilization of existing and built-in solutions over novel tool creation.
+""",
             params=AgentParams(
                 result_type=ToolManagerResult,
                 deps_type=TaskDef,
@@ -151,7 +222,7 @@ If no tools are needed, return an empty ToolSet.""",
                 tools.add(generated_tools)
 
             # print(f"{tools=}", tools)
-            return f"## Available tools:\n ### Builtin tools: {', '.join(builtin_tools.keys())}\n### Generated tools: {', '.join(generated_tools.keys())}"
+            return f"Available tools:\n- Builtin tools: {', '.join(builtin_tools.keys())}\n- Generated tools: {', '.join(generated_tools.keys())}"
 
     async def analyze(self) -> ToolSet:
         result = await self.task.run()

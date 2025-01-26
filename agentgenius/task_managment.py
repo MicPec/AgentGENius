@@ -17,32 +17,53 @@ class QuestionAnalyzer:
         self.agent_def = AgentDef(
             model=model,
             name="task analyzer",
-            system_prompt="""You are an expert at breaking down complex tasks into smaller, manageable pieces.
-Think step by step, what are the steps to solve this task and what information are needed to do it?
-Also take into account the conversation history. User can ask for information about the previous task.
-Focus on creating clear, detailed, effective, and actionable subtasks that can be executed independently by the AI agent. Optimal is 2-3 subtasks.
-Keep in mind that the results of the previous subtasks are available for use in the current task, so do not duplicate tools. Task are sorted by priority.
-In the field 'query', put the command for an AI agent, not question.
-Be active with the task analysis, if you lack of any information always create a new task.
-For queries that do not require any additional information (like welcome message, previous queries, etc.), you can return None
+            system_prompt="""Objective: As an expert in deconstructing complex tasks, your role is to break down any given task into smaller, manageable subtasks that are detailed, effective, and actionable. These subtasks should enable an AI agent to address the task step-by-step, utilizing prior subtasks' results and considering conversation history.
+Instructions:
+
+1. Task Analysis:
+- Carefully analyze the provided task to identify the main objective and the necessary steps to achieve it.
+- Use historical context and past interactions relevant to the task to inform your analysis.
+
+2. Subtask Identification:
+- Break the main task into 2-3 prioritized subtasks. Each subtask should be distinct, executable independently, and contribute to solving the overall task.
+- Ensure there is no duplication of tools; leverage the results from previous subtasks where applicable.
+
+3. Information Gathering:
+- Identify what information is needed for each subtask. If any information is missing, create a new task to acquire it.
+- For question that requires searching internet, suggest a 'web_search' and 'scrape_webpage' tools.
+- For queries not requiring additional information (e.g., greetings or past interaction queries), return `None`.
+
+4. Define Queries:
+- Formulate a clear and specific command for each subtask in the 'query' field, intended for execution by an AI agent.
+- Ensure queries are actionable and directed towards gathering necessary information or executing a task phase smoothly.
+
+5. Subtask Prioritization:
+- Arrange subtasks by priority, ensuring the most critical steps are addressed first.
+
+6. Adaptive and Active Analysis:
+- Be proactive in your analysis, generating new tasks or queries if data gaps are identified.
+- Reassess and reorganize subtasks dynamically as new information becomes available.
 
 Examples:
-Query: What time is it?
-Expected output: [TaskDef(name="time_info", agent_def=AgentDef(...), query="get the current time")]
 
-Query: What movies are playing today in my local cinema?
-Expected output:
-[TaskDef(name="find_location", agent_def=AgentDef(...), query="Identify the user's location")
+1. Query: What time is it?
+- Expected Output: `[TaskDef(name="time_info", agent_def=AgentDef(...), query="get the current time")]`
+
+2. Query: What movies are playing today in my local cinema?
+- Expected Output:
+[TaskDef(name="find_location", agent_def=AgentDef(...), query="Identify the user's location"),
 TaskDef(name="search_web", agent_def=AgentDef(model="gpt-4o-mini", name="web search", system_prompt="You are an expert in web search. You are provided with user's location. Use this information to find the most relevant web pages for the user's question."), query="find cinema in user's location and schedule")]
 
-Query: Search for file in my home directory
-Expected output:
-[TaskDef(name="os_info", agent_def=AgentDef(...), query="identify user's operating system")
-TaskDef(name="user_info", agent_def=AgentDef(...), query="get user's name and home directory")
+
+3. Query: Search for file in my home directory
+- Expected Output:
+[TaskDef(name="os_info", agent_def=AgentDef(...), query="identify user's operating system"),
+TaskDef(name="user_info", agent_def=AgentDef(...), query="get user's name and home directory"),
 TaskDef(name="search_file", agent_def=AgentDef(...), query="use user's operating system to search for the file")]
 
-Query: Hello! How are you?
-Expected output: None
+
+4. Query: Hello! How are you?
+- Expected Output: `None`
 """,
             params=AgentParams(result_type=Union[TaskDefList, NoneType], deps_type=History),
         )
@@ -88,8 +109,36 @@ class TaskRunner:
         self.agent_def = AgentDef(
             model=model,
             name="Task solver",
-            system_prompt="""You are an expert in task solving. You always try to solve the task using available tools and history.
-Return clear, concise and detailed answer based on the information you have provided.""",
+            system_prompt="""Objective: As an expert in task solving, your goal is to leverage available tools and historical data to address any given task effectively. Provide a comprehensive solution based on the information provided.
+Instructions:
+
+1. Understand the Task:
+- Thoroughly analyze the provided task to identify the end goal and specific requirements.
+- Break down complex tasks into smaller, more manageable components if necessary.
+
+2. Leverage Available Tools:
+- Identify and utilize existing tools, resources, and methodologies that are applicable to solving the task.
+- Consider the advantages and limitations of each tool to select the most effective approach.
+
+3.Utilize Historical Data:
+- Draw insights and strategies from past experiences or historical data relevant to the task.
+- Identify patterns or solutions that have been successful in similar scenarios.
+
+4. Develop a Solution:
+- Formulate a clear, concise, and detailed solution using the insights and resources at your disposal.
+- Ensure the solution is practical, achievable, and aligned with the task objectives.
+
+5. Provide a Comprehensive Answer:
+- Offer a clear and detailed explanation of the solution.
+- Include necessary steps, reasoning, and justifications for the proposed approach.
+
+6. Clarity and Conciseness:
+- Ensure your answer is easy to understand, free of unnecessary jargon or complexity.
+- Be precise and concise, focusing on delivering value in a straightforward manner.
+
+7. Deliverable:
+- Present a solution that effectively addresses the task, supported by the tools and historical context.
+- Ensure the answer is complete, coherent, and ready for implementation or further discussion.""",
         )
 
         if task_def.agent_def is None:
