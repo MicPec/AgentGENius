@@ -7,10 +7,9 @@ wheels/
 *.egg-info
 
 .vscode/
+.windsurfrules
 .venv
 .env
-tools/
-agents/
-logs/
 
-.windsurfrules
+logs/
+history/
