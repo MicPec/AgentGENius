@@ -1,7 +1,3 @@
-import json
-import os
-import time
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
@@ -51,8 +47,16 @@ def get_user_name() -> str:
     return getpass.getuser()
 
 
-def get_weather_forecast(latitude: float, longitude: float) -> str:
-    """Get the current weather and forecast for the given latitude and longitude."""
+def get_current_weather_forecast(latitude: float, longitude: float) -> str:
+    """Get the current weather and forecast for the given latitude and longitude.
+
+    Args:
+        latitude: The latitude of the location
+        longitude: The longitude of the location
+
+    Returns:
+        str: The weather data in JSON format
+    """
     import requests
 
     url = f"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current=temperature_2m,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m"
@@ -63,11 +67,20 @@ def get_weather_forecast(latitude: float, longitude: float) -> str:
     return "Error: Unable to retrieve weather data"
 
 
-def search_web(query: str) -> str:
-    """Search the web using duckduckgo API"""
+def search_web(query: str, region: str = "wt-wt", max_results: int = 10) -> str:
+    """Search the web using duckduckgo API
+
+    Args:
+        query: The search query
+        region: The region to search in (eg. "pl-pl", "us-en", "de-de", etc.)
+        max_results: The maximum number of results to return (default: 10)
+
+    Returns:
+        str: The search results
+    """
     from duckduckgo_search import DDGS
 
-    results = DDGS().text(query, max_results=5)
+    results = DDGS().text(query, region=region, max_results=max_results, backend="lite")
     return results
 
 
@@ -90,8 +103,10 @@ def scrape_webpage(url: str, selector: Optional[str] = None, retry_count: int = 
         "Cache-Control": "max-age=0",
     }
 
-    from bs4 import BeautifulSoup
+    from datetime import time
+
     import requests
+    from bs4 import BeautifulSoup
 
     def clean_text(text: str) -> str:
         """Clean extracted text by removing extra whitespace and normalizing line breaks."""
@@ -225,6 +240,8 @@ def read_file(file_path: str, encoding: str = "utf-8") -> str:
 
 def write_file(file_path: str, content: str, mode: str = "w", encoding: str = "utf-8") -> str:
     """Write content to a file. Returns success message or error."""
+    import os
+
     try:
         os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
         with open(file_path, mode, encoding=encoding) as f:
@@ -236,6 +253,8 @@ def write_file(file_path: str, content: str, mode: str = "w", encoding: str = "u
 
 def list_directory(path: str, pattern: Optional[str] = None) -> List[str]:
     """List files and directories in the specified path. Optionally filter by pattern."""
+    from pathlib import Path
+
     try:
         if pattern:
             return [str(p) for p in Path(path).glob(pattern)]
@@ -246,6 +265,8 @@ def list_directory(path: str, pattern: Optional[str] = None) -> List[str]:
 
 def read_json(file_path: str) -> Dict[str, Any]:
     """Read a JSON file and return its content as a dictionary."""
+    import json
+
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -255,6 +276,9 @@ def read_json(file_path: str) -> Dict[str, Any]:
 
 def write_json(file_path: str, data: Dict[str, Any], indent: int = 2) -> str:
     """Write a dictionary to a JSON file. Returns success message or error."""
+    import json
+    import os
+
     try:
         os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
         with open(file_path, "w", encoding="utf-8") as f:
@@ -264,13 +288,12 @@ def write_json(file_path: str, data: Dict[str, Any], indent: int = 2) -> str:
         return f"Error writing JSON file: {str(e)}"
 
 
-def extract_text_from_url(url: str, max_chars: int = 5000, timeout: int = 10) -> str:
+def extract_text_from_url(url: str, max_chars: int = 1000) -> str:
     """Extract readable text content from a URL using readability algorithms.
 
     Args:
         url: The URL to extract text from
         max_chars: Maximum number of characters to return (default: 5000)
-        timeout: Timeout in seconds for the request (default: 10)
     """
     try:
         import trafilatura
@@ -297,24 +320,11 @@ def extract_text_from_url(url: str, max_chars: int = 5000, timeout: int = 10) ->
         return f"Error extracting text: {str(e)}"
 
 
-def search_text(text: str, query: str, context_words: int = 50) -> List[str]:
-    """Search for a query in text and return matching excerpts with context."""
-    try:
-        words = text.split()
-        matches = []
-        for i, word in enumerate(words):
-            if query.lower() in word.lower():
-                start = max(0, i - context_words)
-                end = min(len(words), i + context_words + 1)
-                context = " ".join(words[start:end])
-                matches.append(f"...{context}...")
-        return matches if matches else ["No matches found"]
-    except Exception as e:
-        return [f"Error searching text: {str(e)}"]
-
-
 def get_file_info(file_path: str) -> Dict[str, Any]:
     """Get detailed information about a file."""
+    from datetime import datetime
+    from pathlib import Path
+
     try:
         path = Path(file_path)
         stat = path.stat()
@@ -342,7 +352,17 @@ def get_home_directory() -> str:
         return {"error": f"Error getting home directory: {str(e)}"}
 
 
-def get_user_operating_system() -> str:
+def get_current_working_directory() -> str:
+    """Get the current working directory (cwd)."""
+    import os
+
+    try:
+        return os.getcwd()
+    except Exception as e:
+        return {"error": f"Error getting current working directory: {str(e)}"}
+
+
+def get_operating_system() -> str:
     """Get the operating system of the current machine."""
     import platform
 
@@ -389,39 +409,4 @@ def open_with_default_application(file_path: str) -> dict:
 
 
 if __name__ == "__main__":
-    # Test each function
-    print("Testing scrape_webpage:")
-    print(scrape_webpage("https://example.com"))
-
-    print("\nTesting read_file:")
-    print(read_file("test.txt"))
-
-    print("\nTesting write_file:")
-    print(write_file("test_output.txt", "This is a test content"))
-
-    print("\nTesting list_directory:")
-    print(list_directory("."))
-
-    print("\nTesting read_json:")
-    print(read_json("test.json"))
-
-    print("\nTesting write_json:")
-    print(write_json("test_output.json", {"key": "value"}))
-
-    print("\nTesting extract_text_from_url:")
-    print(extract_text_from_url("https://example.com"))
-
-    print("\nTesting search_text:")
-    print(search_text("This is a sample text for searching.", "sample"))
-
-    print("\nTesting get_file_info:")
-    print(get_file_info("README.md"))
-
-    print("\nTesting get_home_directory:")
-    print(get_home_directory())
-
-    print("\nTesting get_user_operating_system:")
-    print(get_user_operating_system())
-
-    print("\nTesting open_with_default_application:")
-    print(open_with_default_application("README.md"))
+    pass
