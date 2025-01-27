@@ -47,7 +47,7 @@ def get_user_name() -> str:
     return getpass.getuser()
 
 
-def get_current_weather_forecast(latitude: float, longitude: float) -> str:
+def get_weather_forecast(latitude: float, longitude: float) -> str:
     """Get the current weather and forecast for the given latitude and longitude.
 
     Args:
@@ -406,6 +406,58 @@ def open_with_default_application(file_path: str) -> dict:
 
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+def check_file_existence(file_path: str) -> bool:
+    """
+    Checks if a specified file exists at the given file path.
+
+    Args:
+        file_path (str): The path to the file whose existence is to be checked.
+
+    Returns:
+        bool: True if the file exists, False otherwise.
+
+    Raises:
+        ValueError: If the provided path is empty.
+    """
+
+    import os
+
+    if not file_path:
+        raise ValueError("The file path cannot be empty.")
+
+    try:
+        return os.path.isfile(file_path)
+    except Exception as e:
+        # If any unexpected error occurs, handle gracefully
+        return False
+
+
+def identify_language(query: str) -> str:
+    """
+    Detect the language of the user's query.
+
+    Args:
+        query (str): The query whose language needs to be detected.
+
+    Returns:
+        str: The ISO 639-1 code of the detected language.
+
+    Raises:
+        ValueError: If the language cannot be detected from the text.
+    """
+
+    from langdetect import detect, DetectorFactory, LangDetectException
+
+    # Ensure reproducibility by setting the random seed
+    DetectorFactory.seed = 0
+
+    try:
+        language_code = detect(query)
+        return language_code
+    except LangDetectException as e:
+        raise ValueError(f"Could not detect the language: {e}")
 
 
 if __name__ == "__main__":

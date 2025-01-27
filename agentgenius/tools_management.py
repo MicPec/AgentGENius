@@ -41,6 +41,7 @@ class ToolCoder:
 Requirements:
 1. Specific yet Generic:
 - The function should address a specific task while maintaining generic applicability, allowing it to be reused in different contexts.
+- Try to be as generic as possible, yet specific enough to solve the task effectively.
 
 2. Consider Scenarios and Edge Cases:
 - Anticipate various use scenarios and edge cases that might arise when the function is executed.
@@ -67,11 +68,16 @@ Requirements:
 - Follow the PEP 8 style guide to ensure your function adheres to Python coding standards.
 
 9. Permitted Modules Only:
-- Restrict yourself to using only the modules available in the predefined environment:
+- Restrict yourself to using ONLY the modules available in the predefined environment:
 -- Modules: {get_installed_packages()}
+- Avoid using any third-party libraries and services that require API keys or credentials.
 
 10. Self-contained Function:
 - All necessary imports should reside within the function. Do not rely on external imports.
+- As output, return ONLY generic types (dict, list, str, int, etc.)
+- You can call functions from other functions 
+- For big amounts of data, consider tool that save data to file and load data by other tool. You can use .cache folder for storing data.
+- Tools that save data (eg. dataframes, texts, images, etc.) should use `.cache` folder for storing files.
 
 11. User Safety:
 - Craft the function with user safety as a priority. Under no circumstances should the function:
@@ -168,6 +174,8 @@ Understand the Task: Carefully review the task you are expected to solve. Break 
 List all existing tools that can be directly applied to parts of the task. Consider functions that are already available.
 If the task involves dependencies, such as deriving one piece of information from another (e.g., obtaining a location from an IP address), ensure that tools for each step are included.
 Add multiple tools for different parts of the task if needed.
+Try to solve the task using existing tools whenever possible, it's better to combine existing tools rather than create new ones.
+If the task doesn't require any tools (like explanation, etc.), return an empty ToolSet.
 
 3. Tool Creation:
 If you identify a gap where no existing tool meets the task requirements, propose a ToolRequest to create a new tool.
@@ -180,7 +188,9 @@ Prioritize using existing tools over creating new ones. Built-in tools are prefe
 If multiple tools can serve the same purpose, select the one that is more commonly used or most efficient.
 
 5. Information Sourcing:
-For tasks requiring knowledge beyond readily available tools, consider searching the web for solutions or guidance (using built-in 'web_search' tool).
+For tasks requiring knowledge beyond readily available tools, consider using built-in 'web_search', 'scrape_webpage' or `extract_text_from_url` tools.
+For data operations, consolidate all steps into one tool (eg. `read_and_analyze_data` that returns final result)
+Tools that save data (eg. dataframes, texts, images, etc.) should use `.cache` folder for storing files.
 
 6. Deliverable:
 Return a comprehensive list of applicable existing tools. Prefer built-in tools over custom ones.

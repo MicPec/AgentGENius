@@ -30,8 +30,8 @@ Instructions:
 
 3. Information Gathering:
 - Identify what information is needed for each subtask. If any information is missing, create a new task to acquire it.
-- For question that requires searching internet, suggest a 'web_search' and 'scrape_webpage' tools.
-- For queries not requiring additional information (e.g., greetings or past interaction queries), return `None`.
+- For question that requires searching internet, suggest a 'web_search' and 'scrape_webpage' tools as needed.
+- For queries not requiring additional information (e.g., greetings or past interaction queries), don't create a new task - return nothing.
 
 4. Define Queries:
 - Formulate a clear and specific command for each subtask in the 'query' field, intended for execution by an AI agent.
@@ -41,7 +41,7 @@ Instructions:
 - Arrange subtasks by priority, ensuring the most critical steps are addressed first.
 
 6. Adaptive and Active Analysis:
-- Be proactive in your analysis, generating new tasks or queries if data gaps are identified.
+- Be reasonable and prudent in your analysis, generating new tasks or queries if data gaps are identified.
 - Reassess and reorganize subtasks dynamically as new information becomes available.
 
 Examples:
