@@ -9,6 +9,7 @@ import logfire
 import streamlit as st
 from dotenv import load_dotenv
 from rich import print
+import re
 
 from agentgenius.main import AgentGENius
 
@@ -60,39 +61,52 @@ def clear_chat():
 
 def display_task_statistics(history_file: str = "task_history.json"):
     """Display task statistics from history file"""
-    history_path = Path("history") / history_file
-    if not history_path.exists():
-        st.error(f"History file {history_file} not found")
-        return
 
-    history_data = json.loads(history_path.read_text(encoding="utf-8"))
-    st.markdown(f"**History Length:** {len(history_data['items'])} / {history_data['max_items']} items")
+    # history_data = json.loads(history_path.read_text(encoding="utf-8"))
+    history_data = st.session_state.agent.history
+    st.markdown(f"**History Length:** {len(history_data.items)} / {history_data.max_items} items")
 
     # History selection
-    history_items = [f"{i + 1}. {item['user_query']}" for i, item in enumerate(history_data["items"])][::-1]
-    selected_index = st.selectbox("Select query from history:", history_items)
-    if selected_index:
-        current_item = history_data["items"][int(selected_index.split(".")[0]) - 1]
+    history_items = [(i, item.user_query) for i, item in enumerate(history_data.items)][::-1]
+    if history_items:
+        selected_index = st.selectbox(
+            "Select query from history:",
+            range(len(history_items)),
+            format_func=lambda x: f"{len(history_items) - x}. {history_items[x][1]}",
+        )
+        if selected_index is not None:
+            current_item = history_data.items[history_items[selected_index][0]]
 
-        st.markdown("---")
-        st.markdown(f"**User Query:** {current_item['user_query']}")
-        if current_item["tasks"]:
-            st.markdown(f"**Number of subtasks:** {len(current_item['tasks'])}")
-            for task in current_item["tasks"]:
-                with st.expander(f"Task: {task['query']}"):
-                    st.markdown(f"**Result:** {task['result']}\n\n---")
-                    if task["tool_results"]:
-                        st.markdown("**Tools used:**")
+            st.markdown("---")
+            st.markdown(f"**User Query:** {current_item.user_query}")
+            if current_item.tasks:
+                st.markdown(f"**Number of subtasks:** {len(current_item.tasks)}")
+                for task in current_item.tasks:
+                    with st.expander(f"Task: {task.query}"):
+                        st.markdown(f"**Result:** {task.result}\n\n---")
+                        if task.tool_results:
+                            st.markdown("**Tools used:**")
 
-                        tabs = st.tabs([f"🔧 {tool['tool']}" for tool in task["tool_results"]])
-                        for tab, tool in zip(tabs, task["tool_results"]):
-                            with tab:
-                                st.markdown("**Arguments:**")
-                                st.code(tool["args"], language="json")
-                                st.markdown("**Result:**")
-                                st.code(tool["result"])
+                            tabs = st.tabs([f"🔧 {tool.tool}" for tool in task.tool_results])
+                            for tab, tool in zip(tabs, task.tool_results):
+                                with tab:
+                                    st.markdown("**Arguments:**")
+                                    st.code(tool.args, language="json")
+                                    st.markdown("**Result:**")
+                                    st.code(tool.result)
+            else:
+                st.info("Direct response (no subtasks)")
+
+
+def st_markdown(markdown_string):
+    parts = re.split(r"!\[(.*?)\]\((.*?)\)", markdown_string)
+    for i, part in enumerate(parts):
+        if i % 3 == 0:
+            st.markdown(part)
+        elif i % 3 == 1:
+            title = part
         else:
-            st.info("Direct response (no subtasks)")
+            st.image(part)  # Add caption if you want -> , caption=title)
 
 
 def main():
@@ -147,7 +161,7 @@ def main():
                 try:
                     # Run async function in sync context
                     response = asyncio.run(get_agent_response(prompt))
-                    st.markdown(response)
+                    st_markdown(response)
                     st.session_state.messages.append({"role": "assistant", "content": response})
                     # Update statistics after response
                     st.session_state.stats_container = True
