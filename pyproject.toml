@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "beautifulsoup4>=4.12.3",
     "duckduckgo-search>=7.2.1",
+    "faker>=35.0.0",
     "googletrans>=4.0.2",
     "langdetect>=1.0.9",
     "logfire>=2.11.1",
@@ -19,6 +20,7 @@ dependencies = [
     "pydub>=0.25.1",
     "pytest>=8.3.4",
     "python-dotenv>=1.0.1",
+    "seaborn>=0.13.2",
     "setuptools>=75.8.0",
     "simpleaudio>=1.0.4",
     "streamlit>=1.41.1",
