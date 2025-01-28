@@ -14,6 +14,16 @@ from agentgenius.tools_management import ToolManager
 from agentgenius.utils import save_history
 
 load_dotenv()
+# from pydantic_ai import Agent
+# from pydantic_ai.models.openai import OpenAIModel
+
+# model = OpenAIModel(
+#     "deepseek-chat",
+#     base_url="https://api.deepseek.com",
+#     api_key="your-deepseek-api-key",
+# )
+# agent = Agent(model)
+# ...
 
 
 class AgentGENius:
@@ -40,49 +50,24 @@ class AgentGENius:
         result = await analyzer.analyze(query=query, deps=self.history)
 
         # Handle direct response or process tasks
-        if result is not None:
+        if isinstance(result, list):
             # Process each task
             for task_def in result:
                 tool_manager = ToolManager(model=self.model, task_def=task_def)
                 tools = await tool_manager.analyze()
                 task = TaskRunner(model=self.model, task_def=task_def, toolset=tools)
-                task_result = await task.run(deps=task_history)
+                try:
+                    task_result = await task.run(deps=self.history)
+                except Exception as e:
+                    print(f"Error running task {task_def.name}: {e}")
+                    continue
 
-                # Extract tool results from task_result
-                tool_results = []
-                for msg in task_result._all_messages:
-                    if msg.kind == "response" and hasattr(msg, "parts"):
-                        for part in msg.parts:
-                            if hasattr(part, "tool_name"):
-                                # Find the corresponding tool return
-                                tool_return = next(
-                                    (
-                                        ret.parts[0].content
-                                        for ret in task_result._all_messages
-                                        if ret.kind == "request"
-                                        and hasattr(ret, "parts")
-                                        and hasattr(ret.parts[0], "tool_call_id")
-                                        and ret.parts[0].tool_call_id == part.tool_call_id
-                                    ),
-                                    None,
-                                )
-                                if tool_return:
-                                    tool_results.append(
-                                        {
-                                            "tool": part.tool_name,
-                                            "args": str(part.args.args_json)
-                                            if hasattr(part.args, "args_json")
-                                            else str(part.args.args_dict)
-                                            if hasattr(part.args, "args_dict")
-                                            else None,
-                                            "result": str(tool_return) if tool_return is not None else "",
-                                        }
-                                    )
-
+                tool_results = self._extract_tool_results(task_result)
                 task_history.tasks.append(  # pylint: disable=no-member
                     TaskItem(query=task_def.name, result=task_result.data, tool_results=tool_results)
                 )
-
+        if isinstance(result, str):
+            task_history.tasks.append(TaskItem(query="direct_response", result=result))
         # Get final result
         aggregator = Aggregator(model=self.model)
         final_result = await aggregator.analyze(query=query, deps=self.history)

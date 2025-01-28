@@ -10,6 +10,9 @@ from agentgenius.tasks import Task, TaskDef
 from agentgenius.tools import ToolSet
 from agentgenius.utils import load_builtin_tools, load_generated_tools, search_frame
 
+CACHE_DIR = Path(tempfile.gettempdir()) / "agentgenius" / "cache"
+TOOLS_DIR = Path(tempfile.gettempdir()) / "agentgenius" / "tools"
+
 
 class ToolRequest(BaseModel):
     tool_name: str = Field(..., description="Tool name, must be valid python function name")
@@ -28,7 +31,7 @@ class ToolRequestResult(BaseModel):
 
 class ToolCoder:
     def __init__(self, model: str, tool_request: ToolRequest):
-        self.temp_dir = Path(tempfile.gettempdir()) / "agentgenius_tools"
+        self.temp_dir = TOOLS_DIR
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         self.tool_request = tool_request
         self.task = Task(
@@ -41,13 +44,13 @@ class ToolCoder:
 Requirements:
 1. Specific yet Generic:
 - The function should address a specific task while maintaining generic applicability, allowing it to be reused in different contexts.
-- Try to be as generic as possible, yet specific enough to solve the task effectively.
+- Try to be as generic as possible, never hardcode any specific data, all custom values should be passed as arguments or keyword arguments.
 
 2. Consider Scenarios and Edge Cases:
 - Anticipate various use scenarios and edge cases that might arise when the function is executed.
 
 3. Avoid Fake/Dummy Data:
-- Ensure credibility by refraining from using any fake or placeholder data in your function.
+- Ensure credibility by refraining from using any fake, dummy, example or placeholder data in your function.
 
 4. Adhere to ToolRequest Specifications:
 - Construct the function in line with the specified arguments (args) and keyword arguments (kwargs) given in the ToolRequest.
@@ -56,7 +59,7 @@ Requirements:
 - Incorporate Python type hints for all parameters and the return value, enhancing code readability and reliability.
 
 6. Comprehensive Docstring:
-- Write a detailed docstring that includes:
+- Write a short docstring that includes:
 -- A description of the function’s purpose.
 -- Documentation of the parameters.
 -- A note of the return value(s).
@@ -76,8 +79,8 @@ Requirements:
 - All necessary imports should reside within the function. Do not rely on external imports.
 - As output, return ONLY generic types (dict, list, str, int, etc.)
 - You can call functions from other functions 
-- For big amounts of data, consider tool that save data to file and load data by other tool. You can use .cache folder for storing data.
-- Tools that save data (eg. dataframes, texts, images, etc.) should use `.cache` folder for storing files.
+- For big amounts of data, consider tool that save data to file and load data by other tool.
+- Tools that save data (eg. dataframes, texts, images, etc.) should use `{CACHE_DIR}` folder for storing files.
 
 11. User Safety:
 - Craft the function with user safety as a priority. Under no circumstances should the function:
@@ -165,7 +168,7 @@ class ToolManager:
         self._agent = AgentDef(
             model=model,
             name="tool manager",
-            system_prompt="""Objective: You are an expert at selecting and creating tools necessary to accomplish a given task efficiently. Your goal is to identify and propose the optimal set of tools, both existing and potential, needed to solve the task at hand.
+            system_prompt=f"""Objective: You are an expert at selecting and creating tools necessary to accomplish a given task efficiently. Your goal is to identify and propose the optimal set of tools, both existing and potential, needed to solve the task at hand.
 
 1. Instructions:
 Understand the Task: Carefully review the task you are expected to solve. Break down the task into smaller components as needed to identify specific requirements.
@@ -182,6 +185,7 @@ If you identify a gap where no existing tool meets the task requirements, propos
 Ensure the proposed tool is simple, universal, and easy to reuse.
 Name the tool using valid Python function naming conventions, ensuring it aptly describes the function for future identification and use.
 Consider the necessary arguments (args) and keyword arguments (kwargs) for the tool, reflecting parameters like file paths, filenames, modes, etc.
+Mind that all necessary data should be passed as arguments or keyword arguments.
 
 4. Optimize Selection:
 Prioritize using existing tools over creating new ones. Built-in tools are preferred over custom ones.
@@ -189,8 +193,8 @@ If multiple tools can serve the same purpose, select the one that is more common
 
 5. Information Sourcing:
 For tasks requiring knowledge beyond readily available tools, consider using built-in 'web_search', 'scrape_webpage' or `extract_text_from_url` tools.
-For data operations, consolidate all steps into one tool (eg. `read_and_analyze_data` that returns final result)
-Tools that save data (eg. dataframes, texts, images, etc.) should use `.cache` folder for storing files.
+For data operations, consolidate all steps into one tool (eg. `read_and_analyze_data` that returns final result) or use files to pass data between tools. DO not pass large data (like dataframes) between tools.
+Tools that save data (eg. dataframes, texts, images, etc.) should use `{CACHE_DIR}` folder for storing files. You should mention it in your tool request.
 
 6. Deliverable:
 Return a comprehensive list of applicable existing tools. Prefer built-in tools over custom ones.
@@ -264,17 +268,23 @@ Preference and utilization of existing and built-in solutions over novel tool cr
     async def _generate_tool(self, tool_request: ToolRequest) -> Callable:
         if isinstance(tool_request, ToolRequest):
             tool_coder = ToolCoder(model=self.model, tool_request=tool_request)
-            tool = await tool_coder.get_tool()
+            try:
+                tool = await tool_coder.get_tool()
+            except Exception as e:
+                return str(e)
             if isinstance(tool, Callable):
                 return tool
-            raise ValueError("Failed to generate tool")
+            return ValueError("Failed to generate tool")
         raise ValueError("Invalid tool request")
 
     def _generate_tool_sync(self, tool_request: ToolRequest) -> Callable:
         if isinstance(tool_request, ToolRequest):
             tool_coder = ToolCoder(model=self.model, tool_request=tool_request)
-            tool = tool_coder.get_tool_sync()
+            try:
+                tool = tool_coder.get_tool_sync()
+            except Exception as e:
+                return str(e)
             if isinstance(tool, Callable):
                 return tool
-            raise ValueError("Failed to generate tool")
+            return ValueError("Failed to generate tool")
         raise ValueError("Invalid tool request")

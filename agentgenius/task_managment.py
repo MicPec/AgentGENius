@@ -31,7 +31,7 @@ Instructions:
 3. Information Gathering:
 - Identify what information is needed for each subtask. If any information is missing, create a new task to acquire it.
 - For question that requires searching internet, suggest a 'web_search' and 'scrape_webpage' tools as needed.
-- For queries not requiring additional information (e.g., greetings or past interaction queries), don't create a new task - return nothing.
+- For queries not requiring additional external information (e.g., greetings or past interaction queries, generic talks), don't create a new task - return nothing or short text response.
 
 4. Define Queries:
 - Formulate a clear and specific command for each subtask in the 'query' field, intended for execution by an AI agent.
@@ -65,7 +65,7 @@ TaskDef(name="search_file", agent_def=AgentDef(...), query="use user's operating
 4. Query: Hello! How are you?
 - Expected Output: `None`
 """,
-            params=AgentParams(result_type=Union[TaskDefList, NoneType], deps_type=History),
+            params=AgentParams(result_type=Union[TaskDefList, NoneType, str], deps_type=History),
         )
 
         self.task = Task(
@@ -94,13 +94,13 @@ TaskDef(name="search_file", agent_def=AgentDef(...), query="use user's operating
     async def analyze(self, *, query: str, deps: History) -> Union[SimpleResponse, TaskDefList]:
         result = await self.task.run(query, deps=deps)
         if isinstance(result.data, NoneType):
-            return None
+            return
         return sorted(result.data, key=lambda x: x.priority)
 
     def analyze_sync(self, *, query: str, deps: History) -> Union[SimpleResponse, TaskDefList]:
         result = self.task.run_sync(query, deps=deps)
         if isinstance(result.data, NoneType):
-            return None
+            return
         return sorted(result.data, key=lambda x: x.priority)
 
 
@@ -143,16 +143,16 @@ Instructions:
 
         if task_def.agent_def is None:
             task_def.agent_def = self.agent_def
-        task_def.agent_def.params = AgentParams(deps_type=TaskHistory)
+        task_def.agent_def.params = AgentParams(deps_type=History)
         self.task = Task(task_def=task_def, toolset=toolset)
 
         @self.task._agent.system_prompt
-        def get_history(ctx: RunContext[TaskHistory]) -> str:
+        def get_history(ctx: RunContext[History]) -> str:
             """Prepare query by adding task history to the query."""
             return f"Task History: {ctx.deps}"
 
-    async def run(self, *, deps: TaskHistory):
+    async def run(self, *, deps: History):
         return await self.task.run(deps=deps)
 
-    def run_sync(self, *, deps: TaskHistory):
+    def run_sync(self, *, deps: History):
         return self.task.run_sync(deps=deps)
