@@ -95,6 +95,8 @@ TaskDef(name="search_file", agent_def=AgentDef(...), query="use user's operating
         result = await self.task.run(query, deps=deps)
         if isinstance(result.data, NoneType):
             return
+        if isinstance(result.data, str):
+            return result.data
         return sorted(result.data, key=lambda x: x.priority)
 
     def analyze_sync(self, *, query: str, deps: History) -> Union[SimpleResponse, TaskDefList]:
