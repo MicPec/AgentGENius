@@ -18,11 +18,12 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 # from pydantic._internal._model_construction import ModelMetaclass
 from pydantic._internal._schema_generation_shared import GetJsonSchemaHandler
 from pydantic_ai.agent import EndStrategy
+from pydantic_ai.models import Model
 
 # from pydantic_ai.result import ResultData
 from pydantic_core import CoreSchema, core_schema
 
-from agentgenius.config import KNOWN_MODELS
+from agentgenius.config import config
 from agentgenius.utils import search_frame
 
 TYPE_MAPPING = {
@@ -132,7 +133,7 @@ class AgentParams(BaseModel):
 
 
 class AgentDef(BaseModel):
-    model: KNOWN_MODELS
+    model: Union[config.known_models, Model]
     name: str
     system_prompt: str
     params: Optional[AgentParams] = Field(default=None)

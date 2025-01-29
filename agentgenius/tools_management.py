@@ -1,17 +1,13 @@
-import tempfile
-from pathlib import Path
 from typing import Callable, Optional, TypeVar
 
 from pydantic import BaseModel, Field
 
 from agentgenius.agents import AgentDef, AgentParams
 from agentgenius.builtin_tools import get_installed_packages
+from agentgenius.config import config
 from agentgenius.tasks import Task, TaskDef
 from agentgenius.tools import ToolSet
 from agentgenius.utils import load_builtin_tools, load_generated_tools, search_frame
-
-CACHE_DIR = Path(tempfile.gettempdir()) / "agentgenius" / "cache"
-TOOLS_DIR = Path(tempfile.gettempdir()) / "agentgenius" / "tools"
 
 
 class ToolRequest(BaseModel):
@@ -27,11 +23,12 @@ ToolRequestList = TypeVar("ToolRequestList", bound=list[ToolRequest])
 class ToolRequestResult(BaseModel):
     name: str = Field(..., description="Tool name, must be valid python function name")
     code: str = Field(..., description="Python code that can be executed")
+    description: str = Field(..., description="Tool description")
 
 
 class ToolCoder:
     def __init__(self, model: str, tool_request: ToolRequest):
-        self.temp_dir = TOOLS_DIR
+        self.temp_dir = config.tools_path
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         self.tool_request = tool_request
         self.task = Task(
@@ -78,9 +75,9 @@ Requirements:
 10. Self-contained Function:
 - All necessary imports should reside within the function. Do not rely on external imports.
 - As output, return ONLY generic types (dict, list, str, int, etc.)
-- You can call functions from other functions 
+- You can call available tools from other functions, remember to define proper types for arguments and return values.
 - For big amounts of data, consider tool that save data to file and load data by other tool.
-- Tools that save data (eg. dataframes, texts, images, etc.) should use `{CACHE_DIR}` folder for storing files.
+- Tools that save data (eg. dataframes, texts, images, etc.) should use `{config.cache_path}` folder for storing files.
 
 11. User Safety:
 - Craft the function with user safety as a priority. Under no circumstances should the function:
@@ -127,6 +124,24 @@ def open_json_file(path: str, mode: str = 'r') -> dict:
                 ),
             ),
         )
+
+        @self.task._agent.system_prompt  # pylint: disable=protected-access
+        async def get_available_tools():
+            """Return a list of available tool names."""
+            tools = ToolSet()
+
+            # Add builtin tools
+            builtin_tools = load_builtin_tools()
+            if builtin_tools:
+                tools.add(builtin_tools)
+
+            # Add generated tools
+            generated_tools = load_generated_tools()
+            if generated_tools:
+                tools.add(generated_tools)
+
+            # print(f"{tools=}", tools)
+            return f"Available tools:\n- Builtin tools: {', '.join(builtin_tools.keys())}\n- Generated tools: {', '.join(generated_tools.keys())}"
 
     async def get_tool(self) -> str:
         tool_coder = await self.task.run(self.tool_request)
@@ -193,8 +208,8 @@ If multiple tools can serve the same purpose, select the one that is more common
 
 5. Information Sourcing:
 For tasks requiring knowledge beyond readily available tools, consider using built-in 'web_search', 'scrape_webpage' or `extract_text_from_url` tools.
-For data operations, consolidate all steps into one tool (eg. `read_and_analyze_data` that returns final result) or use files to pass data between tools. DO not pass large data (like dataframes) between tools.
-Tools that save data (eg. dataframes, texts, images, etc.) should use `{CACHE_DIR}` folder for storing files. You should mention it in your tool request.
+For data operations, consolidate all steps into one tool (eg. `read_and_analyze_data` that returns final result) or use files to pass data between tools. Do not pass large data (like dataframes) between tools.
+Tools that save data (eg. dataframes, texts, images, etc.) should use `{config.cache_path}` folder for storing files. You should mention it in your tool request.
 
 6. Deliverable:
 Return a comprehensive list of applicable existing tools. Prefer built-in tools over custom ones.
@@ -270,21 +285,19 @@ Preference and utilization of existing and built-in solutions over novel tool cr
             tool_coder = ToolCoder(model=self.model, tool_request=tool_request)
             try:
                 tool = await tool_coder.get_tool()
+                if isinstance(tool, Callable):
+                    return tool
             except Exception as e:
-                return str(e)
-            if isinstance(tool, Callable):
-                return tool
-            return ValueError("Failed to generate tool")
-        raise ValueError("Invalid tool request")
+                return f"Failed to generate tool {tool_request.tool_name}: {str(e)}"
+        return f"Invalid tool request: {tool_request}"
 
     def _generate_tool_sync(self, tool_request: ToolRequest) -> Callable:
         if isinstance(tool_request, ToolRequest):
             tool_coder = ToolCoder(model=self.model, tool_request=tool_request)
             try:
                 tool = tool_coder.get_tool_sync()
+                if isinstance(tool, Callable):
+                    return tool
             except Exception as e:
-                return str(e)
-            if isinstance(tool, Callable):
-                return tool
-            return ValueError("Failed to generate tool")
-        raise ValueError("Invalid tool request")
+                return f"Failed to generate tool {tool_request.tool_name}: {str(e)}"
+        return f"Invalid tool request: {tool_request}"

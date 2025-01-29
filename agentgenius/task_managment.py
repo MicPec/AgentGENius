@@ -65,7 +65,7 @@ TaskDef(name="search_file", agent_def=AgentDef(...), query="use user's operating
 4. Query: Hello! How are you?
 - Expected Output: `None`
 """,
-            params=AgentParams(result_type=Union[TaskDefList, NoneType, str], deps_type=History),
+            params=AgentParams(result_type=Union[TaskDefList, NoneType], deps_type=History),
         )
 
         self.task = Task(
@@ -95,8 +95,6 @@ TaskDef(name="search_file", agent_def=AgentDef(...), query="use user's operating
         result = await self.task.run(query, deps=deps)
         if isinstance(result.data, NoneType):
             return
-        if isinstance(result.data, str):
-            return result.data
         return sorted(result.data, key=lambda x: x.priority)
 
     def analyze_sync(self, *, query: str, deps: History) -> Union[SimpleResponse, TaskDefList]:

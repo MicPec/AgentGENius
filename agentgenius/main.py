@@ -5,29 +5,19 @@ from dotenv import load_dotenv
 from rich import print
 
 from agentgenius.aggregator import Aggregator
-
-# from agentgenius.builtin_tools import *
+from agentgenius.config import config
 from agentgenius.history import History, TaskHistory, TaskItem
 from agentgenius.task_managment import QuestionAnalyzer, TaskRunner
-from agentgenius.tasks import TaskDef
 from agentgenius.tools_management import ToolManager
 from agentgenius.utils import save_history
 
-load_dotenv()
-# from pydantic_ai import Agent
-# from pydantic_ai.models.openai import OpenAIModel
+# from agentgenius.tasks import TaskDef
 
-# model = OpenAIModel(
-#     "deepseek-chat",
-#     base_url="https://api.deepseek.com",
-#     api_key="your-deepseek-api-key",
-# )
-# agent = Agent(model)
-# ...
+load_dotenv()
 
 
 class AgentGENius:
-    def __init__(self, model: str = "openai:gpt-4o", max_history: int = 10):
+    def __init__(self, model=config.default_model, max_history: int = 10):
         """
         Initialize the AgentGENius.
 
@@ -46,16 +36,16 @@ class AgentGENius:
         self.history.append(task_history)
 
         # Analyze query and get tasks
-        analyzer = QuestionAnalyzer(model=self.model)
+        analyzer = QuestionAnalyzer(model=config.analyzer_model)
         result = await analyzer.analyze(query=query, deps=self.history)
 
         # Handle direct response or process tasks
         if isinstance(result, list):
             # Process each task
             for task_def in result:
-                tool_manager = ToolManager(model=self.model, task_def=task_def)
+                tool_manager = ToolManager(model=config.tool_manager_model, task_def=task_def)
                 tools = await tool_manager.analyze()
-                task = TaskRunner(model=self.model, task_def=task_def, toolset=tools)
+                task = TaskRunner(model=config.task_runner_model, task_def=task_def, toolset=tools)
                 try:
                     task_result = await task.run(deps=self.history)
                 except Exception as e:
@@ -66,10 +56,8 @@ class AgentGENius:
                 task_history.tasks.append(  # pylint: disable=no-member
                     TaskItem(query=task_def.name, result=task_result.data, tool_results=tool_results)
                 )
-        if isinstance(result, str):
-            task_history.tasks.append(TaskItem(query="direct_response", result=result))
         # Get final result
-        aggregator = Aggregator(model=self.model)
+        aggregator = Aggregator(model=config.aggregator_model)
         final_result = await aggregator.analyze(query=query, deps=self.history)
 
         # Update histories
@@ -84,16 +72,16 @@ class AgentGENius:
         self.history.append(task_history)
 
         # Analyze query and get tasks
-        analyzer = QuestionAnalyzer(model=self.model)
+        analyzer = QuestionAnalyzer(model=config.analyzer_model)
         result = analyzer.analyze_sync(query=query, deps=self.history)
 
         # Handle direct response or process tasks
         if result:
             # Process each task
             for task_def in result:
-                tool_manager = ToolManager(model=self.model, task_def=task_def)
+                tool_manager = ToolManager(model=config.tool_manager_model, task_def=task_def)
                 tools = tool_manager.analyze_sync()
-                task = TaskRunner(model=self.model, task_def=task_def, toolset=tools)
+                task = TaskRunner(model=config.task_runner_model, task_def=task_def, toolset=tools)
                 task_result = task.run_sync(deps=task_history)
 
                 # Extract tool results from task_result
@@ -103,7 +91,7 @@ class AgentGENius:
                 )
 
         # Get final result
-        aggregator = Aggregator(model=self.model)
+        aggregator = Aggregator(model=config.aggregator_model)
         final_result = aggregator.analyze_sync(query=query, deps=self.history)
 
         # Update history
@@ -147,11 +135,19 @@ class AgentGENius:
 if __name__ == "__main__":
     import asyncio
 
-    async def main():
+    # async def main():
+    #     agentgenius = AgentGENius()
+    #     query = "What's my operating system?"
+    #     result = await agentgenius.ask(query)
+    #     print(result)
+    #     print(agentgenius.history)
+
+    # asyncio.run(main())
+    def main():
         agentgenius = AgentGENius()
         query = "What's my operating system?"
-        result = await agentgenius.ask(query)
+        result = agentgenius.ask_sync(query)
         print(result)
         print(agentgenius.history)
 
-    asyncio.run(main())
+    main()

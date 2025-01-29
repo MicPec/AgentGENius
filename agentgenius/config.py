@@ -1,18 +1,23 @@
 import logging
 from datetime import datetime
+import os
 from pathlib import Path
-from typing import Literal
+import tempfile
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
-from pydantic_ai.models import KnownModelName as kmn
+from pydantic_ai.models import KnownModelName
+from pydantic_ai.models import Model
+from pydantic_ai.models.openai import OpenAIModel
+from dotenv import load_dotenv
 
-KNOWN_MODELS = Literal[
-    "openai:gpt-4o", "openai:gpt-4o-mini", "ollama:granite3.1-dense:8b-instruct-q6_K", "ollama:qwen2.5:14b", "test"
-]
+load_dotenv()
 
-
-if not KNOWN_MODELS:
-    KNOWN_MODELS = kmn
+deepseek = OpenAIModel(
+    "deepseek-chat",
+    base_url="https://api.deepseek.com",
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
+)
 
 
 class AgentGENiusConfig(BaseModel):
@@ -23,20 +28,32 @@ class AgentGENiusConfig(BaseModel):
         arbitrary_types_allowed=True,
     )
 
-    tools_path: Path = Field(default=Path("tools"), description="Path to store tools")
-    agents_path: Path = Field(default=Path("agents"), description="Path to store agents")
-    default_agent_model: str = Field(default="openai:gpt-4o", description="Default model to use for agents")
-    default_agent_prompt: str = Field(
-        default="You are a helpful AI assistant.", description="Default system prompt to use for agents"
+    cache_path: Path = Path(tempfile.gettempdir()) / "agentgenius" / "cache"
+    tools_path: Path = Path(tempfile.gettempdir()) / "agentgenius" / "tools"
+
+    default_model: Model | str = Field("openai:gpt-4o", description="Default model to use for agents")
+    analyzer_model: Model | str = Field("openai:gpt-4o-mini", description="Model to use for question analyzer")
+    tool_manager_model: Model | str = Field("openai:gpt-4o", description="Model to use for tool manager")
+    tool_coder_model: Model | str = Field("openai:gpt-4o", description="Model to use for tool coder")
+    task_runner_model: Model | str = Field("openai:gpt-4o-mini", description="Model to use for task runner")
+    aggregator_model: Model | str = Field("openai:gpt-4o-mini", description="Model to use for aggregator")
+
+    known_models: KnownModelName = Field(
+        default=Literal["openai:gpt-4o", "openai:gpt-4o-mini"], description="Known models to use by agents"
     )
+
     logs_path: Path = Field(default=Path("logs"), description="Path to store logs")
     log_level: str = Field(default="INFO", description="Log level to use")
 
 
 config = AgentGENiusConfig()
+# config.aggregator_model = deepseek
+
 Path.mkdir(config.logs_path, exist_ok=True)
-logging.basicConfig(
-    level=config.log_level,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler(config.logs_path / f"agent_genius_{datetime.now().strftime('%Y-%m-%d')}.log")],
-)
+Path.mkdir(config.cache_path, exist_ok=True)
+Path.mkdir(config.tools_path, exist_ok=True)
+# logging.basicConfig(
+#     level=config.log_level,
+#     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+#     handlers=[logging.FileHandler(config.logs_path / f"agent_genius_{datetime.now().strftime('%Y-%m-%d')}.log")],
+# )
