@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "beautifulsoup4>=4.12.3",
-    "duckduckgo-search>=7.2.1",
+    "duckduckgo-search>=7.3.0",
     "faker>=35.0.0",
     "googletrans>=4.0.2",
     "langdetect>=1.0.9",
@@ -22,8 +22,8 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "seaborn>=0.13.2",
     "setuptools>=75.8.0",
-    "simpleaudio>=1.0.4",
     "streamlit>=1.41.1",
+    "trafilatura>=2.0.0",
 ]
 
 [tool.ruff]
