@@ -101,6 +101,8 @@ class AgentGENius:
     def _extract_tool_results(self, task_result):
         # Extract tool results from task_result
         tool_results = []
+        if not task_result._all_messages:
+            return tool_results
         for msg in task_result._all_messages:
             if msg.kind == "response" and hasattr(msg, "parts"):
                 for part in msg.parts:

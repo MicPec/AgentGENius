@@ -152,7 +152,15 @@ Instructions:
             return f"Task History: {ctx.deps}"
 
     async def run(self, *, deps: History):
-        return await self.task.run(deps=deps)
+        try:
+            result = await self.task.run(deps=deps)
+            return result
+        except Exception as e:
+            return str(e)
 
     def run_sync(self, *, deps: History):
-        return self.task.run_sync(deps=deps)
+        try:
+            result = self.task.run_sync(deps=deps)
+            return result
+        except Exception as e:
+            return str(e)

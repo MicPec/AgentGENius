@@ -36,8 +36,8 @@ def get_installed_packages() -> List[str]:
     """Get a list of all installed python packages and their versions in the current environment."""
     import pkg_resources
 
-    return [pkg.key for pkg in pkg_resources.working_set]
-    # return [f"{str(pkg.key)}=={pkg.version}" for pkg in pkg_resources.working_set]
+    # return [pkg.key for pkg in pkg_resources.working_set]
+    return [f"{str(pkg.key)} {pkg.version}" for pkg in pkg_resources.working_set]
 
 
 def get_user_name() -> str:
@@ -84,149 +84,149 @@ def search_web(query: str, region: str = "wt-wt", max_results: int = 10) -> str:
     return results
 
 
-def scrape_webpage(url: str, selector: Optional[str] = None, retry_count: int = 3, timeout: int = 10) -> str:
-    """Scrape text content from a webpage using advanced BeautifulSoup4 techniques.
+# def scrape_webpage(url: str, selector: Optional[str] = None, retry_count: int = 3, timeout: int = 10) -> str:
+#     """Scrape text content from a webpage using advanced BeautifulSoup4 techniques.
 
-    Args:
-        url: The webpage URL to scrape
-        selector: Optional CSS selector to get specific content
-        retry_count: Number of retries for failed requests (default: 3)
-        timeout: Request timeout in seconds (default: 10)
-    """
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-        "Cache-Control": "max-age=0",
-    }
+#     Args:
+#         url: The webpage URL to scrape
+#         selector: Optional CSS selector to get specific content
+#         retry_count: Number of retries for failed requests (default: 3)
+#         timeout: Request timeout in seconds (default: 10)
+#     """
+#     headers = {
+#         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+#         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+#         "Accept-Language": "en-US,en;q=0.5",
+#         "Accept-Encoding": "gzip, deflate, br",
+#         "Connection": "keep-alive",
+#         "Upgrade-Insecure-Requests": "1",
+#         "Cache-Control": "max-age=0",
+#     }
 
-    import time
+#     import time
 
-    import requests
-    from bs4 import BeautifulSoup
+#     import requests
+#     from bs4 import BeautifulSoup
 
-    def clean_text(text: str) -> str:
-        """Clean extracted text by removing extra whitespace and normalizing line breaks."""
-        import re
+#     def clean_text(text: str) -> str:
+#         """Clean extracted text by removing extra whitespace and normalizing line breaks."""
+#         import re
 
-        # Replace multiple newlines and spaces with single ones
-        text = re.sub(r"\s+", " ", text)
-        # Remove leading/trailing whitespace
-        text = text.strip()
-        return text
+#         # Replace multiple newlines and spaces with single ones
+#         text = re.sub(r"\s+", " ", text)
+#         # Remove leading/trailing whitespace
+#         text = text.strip()
+#         return text
 
-    def is_content_relevant(element) -> bool:
-        """Check if an element likely contains relevant content."""
-        # List of classes/IDs that typically indicate non-content areas
-        blacklist = {
-            "nav",
-            "navigation",
-            "menu",
-            "sidebar",
-            "footer",
-            "header",
-            "banner",
-            "ad",
-            "advertisement",
-            "social",
-            "comment",
-            "cookie",
-            "popup",
-            "modal",
-        }
+#     def is_content_relevant(element) -> bool:
+#         """Check if an element likely contains relevant content."""
+#         # List of classes/IDs that typically indicate non-content areas
+#         blacklist = {
+#             "nav",
+#             "navigation",
+#             "menu",
+#             "sidebar",
+#             "footer",
+#             "header",
+#             "banner",
+#             "ad",
+#             "advertisement",
+#             "social",
+#             "comment",
+#             "cookie",
+#             "popup",
+#             "modal",
+#         }
 
-        # Check element's class and id attributes
-        element_classes = set(element.get("class", []))
-        element_id = element.get("id", "").lower()
+#         # Check element's class and id attributes
+#         element_classes = set(element.get("class", []))
+#         element_id = element.get("id", "").lower()
 
-        # Check if element's classes or id contain blacklisted terms
-        return not (
-            any(term in element_id for term in blacklist)
-            or any(any(term in cls.lower() for term in blacklist) for cls in element_classes)
-        )
+#         # Check if element's classes or id contain blacklisted terms
+#         return not (
+#             any(term in element_id for term in blacklist)
+#             or any(any(term in cls.lower() for term in blacklist) for cls in element_classes)
+#         )
 
-    def extract_content(soup: BeautifulSoup) -> str:
-        """Extract main content from the page using various heuristics."""
-        # Remove unwanted elements
-        for element in soup(["script", "style", "noscript", "iframe", "head", "meta", "link"]):
-            element.decompose()
+#     def extract_content(soup: BeautifulSoup) -> str:
+#         """Extract main content from the page using various heuristics."""
+#         # Remove unwanted elements
+#         for element in soup(["script", "style", "noscript", "iframe", "head", "meta", "link"]):
+#             element.decompose()
 
-        if selector:
-            elements = soup.select(selector)
-            if not elements:
-                return "No elements found matching the selector"
-            return clean_text("\n".join(elem.get_text(strip=True) for elem in elements))
+#         if selector:
+#             elements = soup.select(selector)
+#             if not elements:
+#                 return "No elements found matching the selector"
+#             return clean_text("\n".join(elem.get_text(strip=True) for elem in elements))
 
-        # Try to find main content area
-        content_tags = [
-            "article",
-            "main",
-            '[role="main"]',
-            '[role="article"]',
-            "#content",
-            ".content",
-            "#main",
-            ".main",
-        ]
+#         # Try to find main content area
+#         content_tags = [
+#             "article",
+#             "main",
+#             '[role="main"]',
+#             '[role="article"]',
+#             "#content",
+#             ".content",
+#             "#main",
+#             ".main",
+#         ]
 
-        for tag in content_tags:
-            main_content = soup.select_one(tag)
-            if main_content and is_content_relevant(main_content):
-                return clean_text(main_content.get_text(strip=True))
+#         for tag in content_tags:
+#             main_content = soup.select_one(tag)
+#             if main_content and is_content_relevant(main_content):
+#                 return clean_text(main_content.get_text(strip=True))
 
-        # If no main content found, try to find the largest text block
-        paragraphs = []
-        for p in soup.find_all(["p", "div"]):
-            if is_content_relevant(p):
-                text = clean_text(p.get_text(strip=True))
-                if len(text) > 100:  # Only consider paragraphs with substantial content
-                    paragraphs.append(text)
+#         # If no main content found, try to find the largest text block
+#         paragraphs = []
+#         for p in soup.find_all(["p", "div"]):
+#             if is_content_relevant(p):
+#                 text = clean_text(p.get_text(strip=True))
+#                 if len(text) > 100:  # Only consider paragraphs with substantial content
+#                     paragraphs.append(text)
 
-        if paragraphs:
-            return "\n\n".join(paragraphs)
+#         if paragraphs:
+#             return "\n\n".join(paragraphs)
 
-        # Fallback: get all text from body
-        body = soup.find("body")
-        if body:
-            return clean_text(body.get_text(strip=True))
+#         # Fallback: get all text from body
+#         body = soup.find("body")
+#         if body:
+#             return clean_text(body.get_text(strip=True))
 
-        return clean_text(soup.get_text(strip=True))
+#         return clean_text(soup.get_text(strip=True))
 
-    # Main scraping logic with retries
-    for attempt in range(retry_count):
-        try:
-            session = requests.Session()
-            response = session.get(url, headers=headers, timeout=timeout)
-            response.raise_for_status()
+#     # Main scraping logic with retries
+#     for attempt in range(retry_count):
+#         try:
+#             session = requests.Session()
+#             response = session.get(url, headers=headers, timeout=timeout)
+#             response.raise_for_status()
 
-            # Try to detect and handle character encoding correctly
-            if response.encoding == "ISO-8859-1":
-                response.encoding = response.apparent_encoding
+#             # Try to detect and handle character encoding correctly
+#             if response.encoding == "ISO-8859-1":
+#                 response.encoding = response.apparent_encoding
 
-            soup = BeautifulSoup(response.text, "html.parser", from_encoding=response.encoding)
+#             soup = BeautifulSoup(response.text, "html.parser", from_encoding=response.encoding)
 
-            # Handle meta refresh redirects
-            meta_refresh = soup.find("meta", attrs={"http-equiv": lambda x: x and x.lower() == "refresh"})
-            if meta_refresh:
-                content = meta_refresh.get("content", "")
-                if content and "url=" in content.lower():
-                    redirect_url = content.split("url=", 1)[1].strip("'").strip('"')
-                    if redirect_url != url:  # Avoid infinite loops
-                        response = session.get(redirect_url, headers=headers, timeout=timeout)
-                        response.raise_for_status()
-                        soup = BeautifulSoup(response.text, "html.parser")
+#             # Handle meta refresh redirects
+#             meta_refresh = soup.find("meta", attrs={"http-equiv": lambda x: x and x.lower() == "refresh"})
+#             if meta_refresh:
+#                 content = meta_refresh.get("content", "")
+#                 if content and "url=" in content.lower():
+#                     redirect_url = content.split("url=", 1)[1].strip("'").strip('"')
+#                     if redirect_url != url:  # Avoid infinite loops
+#                         response = session.get(redirect_url, headers=headers, timeout=timeout)
+#                         response.raise_for_status()
+#                         soup = BeautifulSoup(response.text, "html.parser")
 
-            return extract_content(soup)
+#             return extract_content(soup)
 
-        except requests.RequestException as e:
-            if attempt == retry_count - 1:
-                return f"Error scraping webpage (after {retry_count} retries): {str(e)}"
-            time.sleep(1)  # Wait before retrying
-        except Exception as e:
-            return f"Error processing webpage: {str(e)}"
+#         except requests.RequestException as e:
+#             if attempt == retry_count - 1:
+#                 return f"Error scraping webpage (after {retry_count} retries): {str(e)}"
+#             time.sleep(1)  # Wait before retrying
+#         except Exception as e:
+#             return f"Error processing webpage: {str(e)}"
 
 
 def read_file(file_path: str, encoding: str = "utf-8") -> str:

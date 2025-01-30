@@ -33,7 +33,8 @@ You should respond: "It's 3:00 PM and the weather is sunny with a temperature of
 Remember to:
 - Use natural language
 - Be helpful
-- Include all relevant information
+- Include ALL relevant information from current task history
+- Be verbose and detailed
 - Match the user's language
 
 IMPORTANT:

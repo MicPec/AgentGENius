@@ -15,6 +15,7 @@ class ToolRequest(BaseModel):
     description: str
     args: Optional[tuple] = Field(default=None)
     kwargs: Optional[dict] = Field(default=None)
+    returns: Optional[str] = Field(default=None, description="Expected return type")
 
 
 ToolRequestList = TypeVar("ToolRequestList", bound=list[ToolRequest])
@@ -75,9 +76,12 @@ Requirements:
 10. Self-contained Function:
 - All necessary imports should reside within the function. Do not rely on external imports.
 - As output, return ONLY generic types (dict, list, str, int, etc.)
-- You can call available tools from other functions, remember to define proper types for arguments and return values.
+- You can call available functions from other functions (eg. def search_something(query: str):   return search_web(query)), remember to define proper types for arguments and return values.
 - For big amounts of data, consider tool that save data to file and load data by other tool.
 - Tools that save data (eg. dataframes, texts, images, etc.) should use `{config.cache_path}` folder for storing files.
+- If you use duckduckgo_search: from duckduckgo_search import DDGS\n    results = DDGS().text(query, region=region, max_results=max_results, backend="lite")
+
+    results = DDGS().text
 
 11. User Safety:
 - Craft the function with user safety as a priority. Under no circumstances should the function:
