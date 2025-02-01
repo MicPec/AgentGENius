@@ -2,18 +2,16 @@
 """Streamlit chat application using AgentGENius."""
 
 import asyncio
-import json
-from pathlib import Path
+import re
 
 import logfire
 import streamlit as st
 from dotenv import load_dotenv
 from rich import print
-import re
 
 from agentgenius.main import AgentGENius
+from agentgenius.tasks import TaskStatus
 
-# Load environment variables and configure logging
 load_dotenv()
 logfire.configure(send_to_logfire="if-token-present")
 
@@ -32,7 +30,10 @@ def initialize_session_state():
         st.session_state.messages = []
     if "agent" not in st.session_state:
         try:
-            st.session_state.agent = AgentGENius(model="openai:gpt-4o")
+            st.session_state.agent = AgentGENius(
+                model="openai:gpt-4o",
+                callback=lambda status: status_callback(st.session_state.get("status_container"), status),
+            )
         except Exception as e:
             st.error(f"Failed to initialize agent: {str(e)}")
             st.session_state.agent = None
@@ -109,6 +110,21 @@ def st_markdown(markdown_string):
             st.image(part)  # Add caption if you want -> , caption=title)
 
 
+def status_callback(status_container, status: TaskStatus):
+    """Update status in real-time during agent's work.
+
+    Args:
+        status_container: Streamlit container for status updates
+        status: TaskStatus object containing current status information
+    """
+    if status_container is None:
+        return
+
+    task_info = f"**Task:** {status.task_name}\n" if status.task_name else ""
+    progress_info = f" ({status.progress:.0f}%)" if status.progress is not None else ""
+    status_container.write(f"{task_info}&emsp;&emsp;**Status:** {status.status}{progress_info}")
+
+
 def main():
     """Main application function."""
     st.title("💬 AgentGENius Chat")
@@ -149,7 +165,7 @@ def main():
             st.markdown(message["content"])
 
     # Chat input
-    if prompt := st.chat_input("What would you like to discuss?", key="chat_input"):
+    if prompt := st.chat_input("What can I help you with?", key="chat_input"):
         # Add user message to chat history
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -157,20 +173,33 @@ def main():
 
         # Get AI response
         with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                try:
-                    # Run async function in sync context
-                    response = asyncio.run(get_agent_response(prompt))
-                    st_markdown(response)
-                    st.session_state.messages.append({"role": "assistant", "content": response})
-                    # Update statistics after response
-                    st.session_state.stats_container = True
-                    # Force refresh of the sidebar
-                    st.rerun()
-                except Exception as e:
-                    error_message = f"Error: {str(e)}"
-                    st.error(error_message)
-                    st.session_state.messages.append({"role": "assistant", "content": error_message})
+            # Create columns for spinner and status
+            col1, col2 = st.columns([1, 4])
+
+            with col1:
+                spinner_container = st.empty()
+            with col2:
+                # Create a container for status updates
+                status_container = st.empty()
+                st.session_state.status_container = status_container
+
+            with spinner_container:
+                with st.spinner("Processing..."):
+                    try:
+                        # Run async function in sync context
+                        response = asyncio.run(get_agent_response(prompt))
+                        st_markdown(response)
+                        st.session_state.messages.append({"role": "assistant", "content": response})
+                        # Update statistics after response
+                        st.session_state.stats_container = True
+                        # Clear the status container after completion
+                        status_container.empty()
+                        # Force refresh of the sidebar
+                        st.rerun()
+                    except Exception as e:
+                        error_message = f"Error: {str(e)}"
+                        st.error(error_message)
+                        st.session_state.messages.append({"role": "assistant", "content": error_message})
 
 
 if __name__ == "__main__":
