@@ -67,166 +67,81 @@ def get_weather_forecast(latitude: float, longitude: float) -> str:
     return "Error: Unable to retrieve weather data"
 
 
-def search_web(query: str, region: str = "wt-wt", max_results: int = 10) -> str:
-    """Search the web using duckduckgo API
+def get_duckduckgo_zero_click(query):
+    import requests
+
+    url = "https://api.duckduckgo.com/"
+    params = {"q": query, "format": "json", "no_html": 1, "skip_disambig": 1}
+    response = requests.get(url, params=params)
+    data = response.json()
+    return data
+
+
+def get_wikipedia_summary(title, language="en"):
+    """Get the summary of a Wikipedia page.
 
     Args:
-        query: The search query
-        region: The region to search in (eg. "pl-pl", "us-en", "de-de", etc.)
-        max_results: The maximum number of results to return (default: 10)
+        title (str): The title of the Wikipedia page.
+        language (str): The language of the Wikipedia page (default: "en").
 
     Returns:
-        str: The search results
+        str: The summary of the Wikipedia page.
     """
-    from duckduckgo_search import DDGS
+    import wikipediaapi
 
-    results = DDGS().text(query, region=region, max_results=max_results, backend="lite")
-    return results
+    wiki_wiki = wikipediaapi.Wikipedia(
+        user_agent="AgentGENius", language=language, extract_format=wikipediaapi.ExtractFormat.WIKI
+    )
+    page = wiki_wiki.page(title)
+
+    if page.exists():
+        return page.summary
+    else:
+        return "The page does not exist."
 
 
-# def scrape_webpage(url: str, selector: Optional[str] = None, retry_count: int = 3, timeout: int = 10) -> str:
-#     """Scrape text content from a webpage using advanced BeautifulSoup4 techniques.
+def get_wikipedia_page(title, language="en", max_length=1000):
+    """Get the full text of a Wikipedia page.
 
-#     Args:
-#         url: The webpage URL to scrape
-#         selector: Optional CSS selector to get specific content
-#         retry_count: Number of retries for failed requests (default: 3)
-#         timeout: Request timeout in seconds (default: 10)
-#     """
-#     headers = {
-#         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-#         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-#         "Accept-Language": "en-US,en;q=0.5",
-#         "Accept-Encoding": "gzip, deflate, br",
-#         "Connection": "keep-alive",
-#         "Upgrade-Insecure-Requests": "1",
-#         "Cache-Control": "max-age=0",
-#     }
+    Args:
+        title (str): The title of the Wikipedia page.
+        language (str): The language of the Wikipedia page (default: "en").
+        max_length (int): The maximum length of the page text (default: 1000).
 
-#     import time
+    Returns:
+        str: The full text of the Wikipedia page.
+    """
+    import wikipediaapi
 
-#     import requests
-#     from bs4 import BeautifulSoup
+    wiki_wiki = wikipediaapi.Wikipedia(
+        user_agent="AgentGENius", language=language, extract_format=wikipediaapi.ExtractFormat.WIKI
+    )
+    page = wiki_wiki.page(title)
 
-#     def clean_text(text: str) -> str:
-#         """Clean extracted text by removing extra whitespace and normalizing line breaks."""
-#         import re
+    if page.exists():
+        return page.text[:max_length] + "..." if len(page.text) > max_length else page.text
+    else:
+        return "The page does not exist."
 
-#         # Replace multiple newlines and spaces with single ones
-#         text = re.sub(r"\s+", " ", text)
-#         # Remove leading/trailing whitespace
-#         text = text.strip()
-#         return text
 
-#     def is_content_relevant(element) -> bool:
-#         """Check if an element likely contains relevant content."""
-#         # List of classes/IDs that typically indicate non-content areas
-#         blacklist = {
-#             "nav",
-#             "navigation",
-#             "menu",
-#             "sidebar",
-#             "footer",
-#             "header",
-#             "banner",
-#             "ad",
-#             "advertisement",
-#             "social",
-#             "comment",
-#             "cookie",
-#             "popup",
-#             "modal",
-#         }
+def web_search(query: str, max_results: Optional[int] = 10) -> dict:
+    """Search the web using Tavily API
 
-#         # Check element's class and id attributes
-#         element_classes = set(element.get("class", []))
-#         element_id = element.get("id", "").lower()
+    Args:
+        query: The search query string
+        max_results: Number of results to return (default: 10, max: 20)
+    """
+    import os
 
-#         # Check if element's classes or id contain blacklisted terms
-#         return not (
-#             any(term in element_id for term in blacklist)
-#             or any(any(term in cls.lower() for term in blacklist) for cls in element_classes)
-#         )
+    from tavily import TavilyClient
 
-#     def extract_content(soup: BeautifulSoup) -> str:
-#         """Extract main content from the page using various heuristics."""
-#         # Remove unwanted elements
-#         for element in soup(["script", "style", "noscript", "iframe", "head", "meta", "link"]):
-#             element.decompose()
-
-#         if selector:
-#             elements = soup.select(selector)
-#             if not elements:
-#                 return "No elements found matching the selector"
-#             return clean_text("\n".join(elem.get_text(strip=True) for elem in elements))
-
-#         # Try to find main content area
-#         content_tags = [
-#             "article",
-#             "main",
-#             '[role="main"]',
-#             '[role="article"]',
-#             "#content",
-#             ".content",
-#             "#main",
-#             ".main",
-#         ]
-
-#         for tag in content_tags:
-#             main_content = soup.select_one(tag)
-#             if main_content and is_content_relevant(main_content):
-#                 return clean_text(main_content.get_text(strip=True))
-
-#         # If no main content found, try to find the largest text block
-#         paragraphs = []
-#         for p in soup.find_all(["p", "div"]):
-#             if is_content_relevant(p):
-#                 text = clean_text(p.get_text(strip=True))
-#                 if len(text) > 100:  # Only consider paragraphs with substantial content
-#                     paragraphs.append(text)
-
-#         if paragraphs:
-#             return "\n\n".join(paragraphs)
-
-#         # Fallback: get all text from body
-#         body = soup.find("body")
-#         if body:
-#             return clean_text(body.get_text(strip=True))
-
-#         return clean_text(soup.get_text(strip=True))
-
-#     # Main scraping logic with retries
-#     for attempt in range(retry_count):
-#         try:
-#             session = requests.Session()
-#             response = session.get(url, headers=headers, timeout=timeout)
-#             response.raise_for_status()
-
-#             # Try to detect and handle character encoding correctly
-#             if response.encoding == "ISO-8859-1":
-#                 response.encoding = response.apparent_encoding
-
-#             soup = BeautifulSoup(response.text, "html.parser", from_encoding=response.encoding)
-
-#             # Handle meta refresh redirects
-#             meta_refresh = soup.find("meta", attrs={"http-equiv": lambda x: x and x.lower() == "refresh"})
-#             if meta_refresh:
-#                 content = meta_refresh.get("content", "")
-#                 if content and "url=" in content.lower():
-#                     redirect_url = content.split("url=", 1)[1].strip("'").strip('"')
-#                     if redirect_url != url:  # Avoid infinite loops
-#                         response = session.get(redirect_url, headers=headers, timeout=timeout)
-#                         response.raise_for_status()
-#                         soup = BeautifulSoup(response.text, "html.parser")
-
-#             return extract_content(soup)
-
-#         except requests.RequestException as e:
-#             if attempt == retry_count - 1:
-#                 return f"Error scraping webpage (after {retry_count} retries): {str(e)}"
-#             time.sleep(1)  # Wait before retrying
-#         except Exception as e:
-#             return f"Error processing webpage: {str(e)}"
+    api_key = os.getenv("TAVILY_API_KEY")
+    tavily_client = TavilyClient(api_key=api_key)
+    try:
+        response = tavily_client.search(query, max_results=max_results)
+        return response
+    except Exception as e:
+        return f"Error searching web: {str(e)}"
 
 
 def read_file(file_path: str, encoding: str = "utf-8") -> str:
