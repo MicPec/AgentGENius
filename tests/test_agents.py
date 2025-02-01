@@ -111,7 +111,7 @@ class TestAgentDef:
         """Test getting system prompt"""
         assert basic_agent_def.system_prompt == "You are a test assistant."
 
-    @pytest.mark.parametrize("model", ["test", "openai:gpt-4o-mini"])
+    @pytest.mark.parametrize("model", ["openai:gpt-4o-mini", "openai:gpt-4o", "test"])
     def test_valid_models(self, model):
         """Test all valid model options"""
         agent = AgentDef(model=model, name="TestAgent", system_prompt="Test prompt")
