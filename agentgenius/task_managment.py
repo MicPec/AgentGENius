@@ -1,3 +1,4 @@
+import datetime
 from types import NoneType
 from typing import Union
 
@@ -22,6 +23,7 @@ Instructions:
 
 1. Task Analysis:
 - Carefully analyze the provided task to identify the main objective and the necessary steps to achieve it.
+- Ensure that your response aligns with the specified timeline of the query. If user ask for future events, do not answer with information from the past.
 - Use historical context and past interactions relevant to the task to inform your analysis.
 
 2. Subtask Identification:
@@ -30,8 +32,8 @@ Instructions:
 
 3. Information Gathering:
 - Identify what information is needed for each subtask. If any information is missing, create a new task to acquire it.
-- For question that requires searching internet, suggest a 'web_search' and 'scrape_webpage' tools as needed.
-- For queries not requiring additional external information (e.g., greetings or past interaction queries, generic talks), don't create a new task - return nothing or short text response.
+- For question that requires searching internet, suggest a 'web_search' tool as needed.
+- For queries that do not require additional external information—such as greetings, previous interactions, general conversation, or translations—please refrain from creating a new task or providing a response. Instead, indicate that such queries will be handled by another AI agent.
 
 4. Define Queries:
 - Formulate a clear and specific command for each subtask in the 'query' field, intended for execution by an AI agent.
@@ -76,7 +78,7 @@ TaskDef(name="search_file", agent_def=AgentDef(...), query="use user's operating
             )
         )
 
-        @self.task._agent.system_prompt
+        @self.task.agent.system_prompt
         def get_history(ctx: RunContext[History]) -> str:
             """Prepare query by adding task history to the query."""
             if ctx.deps:
@@ -89,6 +91,12 @@ TaskDef(name="search_file", agent_def=AgentDef(...), query="use user's operating
                 history = []
             result = f"Conversation history: {history}"
             # print(result)
+            return result
+
+        @self.task.agent.system_prompt
+        def get_current_date() -> str:
+            """Get current date and time."""
+            result = f"Current date and time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
             return result
 
     async def analyze(self, *, query: str, deps: History) -> Union[SimpleResponse, TaskDefList]:
@@ -146,21 +154,15 @@ Instructions:
         task_def.agent_def.params = AgentParams(deps_type=History)
         self.task = Task(task_def=task_def, toolset=toolset)
 
-        @self.task._agent.system_prompt
+        @self.task.agent.system_prompt
         def get_history(ctx: RunContext[History]) -> str:
             """Prepare query by adding task history to the query."""
             return f"Task History: {ctx.deps}"
 
     async def run(self, *, deps: History):
-        try:
-            result = await self.task.run(deps=deps)
-            return result
-        except Exception as e:
-            return str(e)
+        result = await self.task.run(deps=deps)
+        return result
 
     def run_sync(self, *, deps: History):
-        try:
-            result = self.task.run_sync(deps=deps)
-            return result
-        except Exception as e:
-            return str(e)
+        result = self.task.run_sync(deps=deps)
+        return result

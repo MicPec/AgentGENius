@@ -105,7 +105,7 @@ class Task(BaseModel):
         result = []
         for tool in t:
             try:
-                if hasattr(tool, 'function'):
+                if hasattr(tool, "function"):
                     result.append(Tool(tool.function))
                 elif callable(tool):
                     result.append(Tool(tool))
@@ -116,10 +116,10 @@ class Task(BaseModel):
     def register_tool(self, tool: ToolDef):
         """Registers a tool to the task's agent dynamically."""
         try:
-            if hasattr(tool, 'function'):
-                self._agent._register_tool(Tool(tool.function))  # pylint: disable=protected-access
+            if hasattr(tool, "function"):
+                self.agent._register_tool(Tool(tool.function))  # pylint: disable=protected-access
             elif callable(tool):
-                self._agent._register_tool(Tool(tool))  # pylint: disable=protected-access
+                self.agent._register_tool(Tool(tool))  # pylint: disable=protected-access
             self.toolset.add(tool)  # pylint: disable=no-member
         except Exception as e:
             print(f"Failed to register tool {tool}: {str(e)}")
@@ -136,10 +136,10 @@ class Task(BaseModel):
         if self.task_def.query and args:  # pylint: disable=no-member
             query = f"{self.task_def.query}: {args[0]}"  # pylint: disable=no-member
         try:
-            return await self._agent.run(query, **kwargs)
+            return await self.agent.run(query, **kwargs)
         except Exception as e:
             print(f"Task execution failed: {str(e)}")
-            if hasattr(e, '__cause__') and e.__cause__:
+            if hasattr(e, "__cause__") and e.__cause__:
                 print(f"Cause: {str(e.__cause__)}")
             raise
 
@@ -147,7 +147,11 @@ class Task(BaseModel):
         query = self.task_def.query  # pylint: disable=no-member
         if self.task_def.query and args:  # pylint: disable=no-member
             query = f"{self.task_def.query}: {args[0]}"  # pylint: disable=no-member
-        return self._agent.run_sync(query, **kwargs)
+        return self.agent.run_sync(query, **kwargs)
+
+    @property
+    def agent(self):
+        return self._agent
 
 
 class TaskList(BaseModel):

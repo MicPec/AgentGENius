@@ -1,3 +1,5 @@
+import importlib
+import sys
 from typing import Callable, Optional, TypeVar
 
 from pydantic import BaseModel, Field
@@ -21,6 +23,11 @@ class ToolRequest(BaseModel):
 ToolRequestList = TypeVar("ToolRequestList", bound=list[ToolRequest])
 
 
+class ToolManagerResult(BaseModel):
+    toolset: ToolSet = Field(default_factory=ToolSet, description="A set of existing tools")
+    tool_request: Optional[ToolRequestList] = Field(default=None, description="A list of tools to create")
+
+
 class ToolRequestResult(BaseModel):
     name: str = Field(..., description="Tool name, must be valid python function name")
     code: str = Field(..., description="Python code that can be executed")
@@ -37,89 +44,82 @@ class ToolCoder:
             agent_def=AgentDef(
                 model=model,
                 name="tool manager",
-                system_prompt=f"""Objective: As an expert Python developer, your task is to create a new tool function intended for use by an AI agent. Follow the requirements meticulously to ensure the function is robust, safe, and adheres to best practices.
+                system_prompt=f"""Objective: As a seasoned Python developer, your mission is to develop a new, efficient tool function designed for deployment by an AI agent. Follow these detailed requirements stringently to ensure the function is both robust and aligned with industry best practices:
 
-Requirements:
-1. Specific yet Generic:
-- The function should address a specific task while maintaining generic applicability, allowing it to be reused in different contexts.
-- Try to be as generic as possible, never hardcode any specific data, all custom values should be passed as arguments or keyword arguments.
+1. Specific Yet Flexible:
+- Craft a function that fulfills a distinct task, yet retains broad versatility, enabling its application across a variety of contexts and tasks.
+- Ensure the function remains highly adaptable by avoiding hardcoding of specific data. All unique values should be passed dynamically through arguments or keyword arguments.
 
-2. Consider Scenarios and Edge Cases:
-- Anticipate various use scenarios and edge cases that might arise when the function is executed.
+2. Anticipate Diverse Scenarios and Edge Cases:
+- Thoughtfully anticipate and integrate solutions for various usage scenarios and potential edge cases the function might encounter during execution.
 
-3. Avoid Fake/Dummy Data:
-- Ensure credibility by refraining from using any fake, dummy, example or placeholder data in your function.
+3. Eliminate Dummy or Placeholder Data:
+- Enhance the function's authenticity by strictly avoiding the use of fake, dummy, or placeholder data.
 
-4. Adhere to ToolRequest Specifications:
-- Construct the function in line with the specified arguments (args) and keyword arguments (kwargs) given in the ToolRequest.
+4. Align with ToolRequest Specifications:
+- Design the function in compliance with the provided arguments (args) and keyword arguments (kwargs) as specified in the ToolRequest.
 
-5. Type Hints:
-- Incorporate Python type hints for all parameters and the return value, enhancing code readability and reliability.
+5. Utilize Type Hints:
+- Incorporate Python type hints for all function parameters and return values to significantly improve code clarity and reliability.
 
-6. Comprehensive Docstring:
-- Write a short docstring that includes:
--- A description of the function’s purpose.
--- Documentation of the parameters.
--- A note of the return value(s).
+6. Detailed Docstring:
+- Compose a short and concise yet comprehensive docstring encompassing:
+    -- A clear explanation of the function’s purpose and intended utility.
+    -- Short documentation of parameters and their purpose.
+    -- A description of the return value or potential outcomes.
 
-7. Error Handling:
-- Implement try/except blocks to handle potential errors gracefully, ensuring the function doesn’t fail unexpectedly.
+7. Robust Error Handling:
+- Implement thorough try/except blocks to manage potential errors gracefully, ensuring the function remains operational under unintended scenarios.
 
-8. PEP 8 Compliance:
-- Follow the PEP 8 style guide to ensure your function adheres to Python coding standards.
+8. Adherence to PEP 8 Standards:
+- Strictly conform to the PEP 8 style guide to ensure the function adheres to widely-accepted Python coding conventions and readability standards.
 
-9. Permitted Modules Only:
-- Restrict yourself to using ONLY the modules available in the predefined environment:
--- Modules: {get_installed_packages()}
-- Avoid using any third-party libraries and services that require API keys or credentials.
+9. Restriction to Predefined Modules:
+- Utilize only the modules available within the specified environment:
+    -- Modules: {get_installed_packages()}
+- Abstain from employing any third-party libraries or services that necessitate API keys or authentication.
 
-10. Self-contained Function:
-- All necessary imports should reside within the function. Do not rely on external imports.
-- As output, return ONLY generic types (dict, list, str, int, etc.)
-- You can call available functions from other functions (eg. def search_something(query: str):   return search_web(query)), remember to define proper types for arguments and return values.
-- For big amounts of data, consider tool that save data to file and load data by other tool.
-- Tools that save data (eg. dataframes, texts, images, etc.) should use `{config.cache_path}` folder for storing files.
-- If you use duckduckgo_search: from duckduckgo_search import DDGS\n    results = DDGS().text(query, region=region, max_results=max_results, backend="lite")
+10. Self-contained and Modular Function:
+- Ensure all requisite imports are encapsulated within the function itself. Do not depend on external imports.
+- Return results using only standard and universal types (dict, list, str, int, etc.)
+- Functions capable of handling large volumes of data should include mechanisms for saving data to a file for later retrieval and processing.
+- When conducting web searches, rely on the `web_search` function or alternatively use the tavily API.
+- Functions responsible for data storage should exclusively utilize the `{config.cache_path}` directory for file management and storage.
 
-    results = DDGS().text
-
-11. User Safety:
-- Craft the function with user safety as a priority. Under no circumstances should the function:
--- Delete files.
--- Expose sensitive information.
--- Execute or suggest any malicious code.
--- Engage in any illegal activities.
+11. Prioritize User Safety:
+- Develop the function with a robust emphasis on user safety. Under no circumstances should the function:
+    -- Perform file deletions.
+    -- Disclose sensitive or private information.
+    -- Execute, endorse, or suggest any harmful or malicious code.
+    -- Participate in any illegal or unethical activities.
 
 Example:
+
 ToolRequest:
 ("tool_name": 'open_json_file', 'description': 'Open and read a JSON file', 'args': ('path',), 'kwargs': {{"mode": 'r'}})
 
 ToolRequestResult:
+
 def open_json_file(path: str, mode: str = 'r') -> dict:
     '''
-    Open and read a JSON file from the given filepath.
+    Open and read a JSON file from the specified file path.
 
     Args:
-        path (str): The path to the JSON file to be opened.
-        mode (str): The file mode for opening the file. Default is 'r' for read.
+        path (str): The full path to the JSON file to be opened.
+        mode (str): The file open mode, defaulting to 'r' for reading.
 
     Returns:
-        dict: The contents of the JSON file as a dictionary.
-
-    Raises:
-        FileNotFoundError: If the file does not exist.
-        json.JSONDecodeError: If the file is not a valid JSON.
+        dict: The JSON file's content parsed into a dictionary format.
     '''
-    
     import json
-    
+
     try:
-        with open(path, mode) as f:
-            return json.load(f)
-    except FileNotFoundError as e:
-        return f"Error: {{e}}"
-    except json.JSONDecodeError as e:
-        return f"Error: {{e}}"
+        with open(path, mode) as file:
+            return json.load(file)
+    except FileNotFoundError as error:
+        return f"File not found: {{error}}"
+    except json.JSONDecodeError as error:
+        return f"JSON decode error: {{error}}"
 """,
                 params=AgentParams(
                     retry=3,
@@ -129,7 +129,7 @@ def open_json_file(path: str, mode: str = 'r') -> dict:
             ),
         )
 
-        @self.task._agent.system_prompt  # pylint: disable=protected-access
+        @self.task.agent.system_prompt  # pylint: disable=protected-access
         async def get_available_tools():
             """Return a list of available tool names."""
             tools = ToolSet()
@@ -164,19 +164,46 @@ def open_json_file(path: str, mode: str = 'r') -> dict:
             return str(e)
 
     def save_tool(self, tool: ToolRequestResult) -> Callable:
-        with open(self.temp_dir / f"{tool.name}.py", "w") as f:
+        # Save the tool code to file
+        tool_file = self.temp_dir / f"{tool.name}.py"
+        with open(tool_file, "w") as f:
             f.write(tool.code)
+
         try:
+            # Create a unique module name
+            module_name = f"generated_tool_{tool_file.stem}"
+
+            # Load the module using importlib
+            spec = importlib.util.spec_from_file_location(module_name, str(tool_file))
+            if spec is None or spec.loader is None:
+                raise ImportError(f"Failed to create module spec for {tool_file}")
+
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
+
+            # Import and inject builtin tools into module namespace
+            from agentgenius import builtin_tools
+
+            for attr_name in dir(builtin_tools):
+                attr = getattr(builtin_tools, attr_name)
+                if callable(attr) and not attr_name.startswith("_") and attr.__module__ == builtin_tools.__name__:
+                    setattr(module, attr_name, attr)
+
+            # Execute the module
+            spec.loader.exec_module(module)
+
+            # Get the tool function from the module
+            if not hasattr(module, tool.name):
+                raise AttributeError(f"Tool function '{tool.name}' not found in generated module")
+
+            function = getattr(module, tool.name)
+            # Add to globals so search_frame can find it
             frame = search_frame("__main__", name="__name__")
-            exec(tool.code, frame)
-            return frame[tool.name]
+            frame[tool.name] = function
+
+            return function
         except Exception as e:
-            raise Exception(f"Failed to add tool to module: {str(e)}") from e
-
-
-class ToolManagerResult(BaseModel):
-    toolset: ToolSet = Field(default_factory=ToolSet, description="A set of existing tools")
-    tool_request: Optional[ToolRequestList] = Field(default=None, description="A list of tools to create")
+            raise Exception(f"Failed to initialize tool module: {str(e)}") from e
 
 
 class ToolManager:
@@ -184,7 +211,7 @@ class ToolManager:
         self.model = model
         self.task_def = task_def
 
-        self._agent = AgentDef(
+        self._agent_def = AgentDef(
             model=model,
             name="tool manager",
             system_prompt=f"""Objective: You are an expert at selecting and creating tools necessary to accomplish a given task efficiently. Your goal is to identify and propose the optimal set of tools, both existing and potential, needed to solve the task at hand.
@@ -193,11 +220,11 @@ class ToolManager:
 Understand the Task: Carefully review the task you are expected to solve. Break down the task into smaller components as needed to identify specific requirements.
 
 2. Identify Tools:
-List all existing tools that can be directly applied to parts of the task. Consider functions that are already available.
+List all existing functions that can be directly applied to parts of the task. Consider functions that are already available.
 If the task involves dependencies, such as deriving one piece of information from another (e.g., obtaining a location from an IP address), ensure that tools for each step are included.
 Add multiple tools for different parts of the task if needed.
 Try to solve the task using existing tools whenever possible, it's better to combine existing tools rather than create new ones.
-If the task doesn't require any tools (like explanation, etc.), return an empty ToolSet.
+If the task doesn't require any functions or extra information (like explanation, translations, summarization, etc.), return an empty ToolSet.
 
 3. Tool Creation:
 If you identify a gap where no existing tool meets the task requirements, propose a ToolRequest to create a new tool.
@@ -234,12 +261,12 @@ Preference and utilization of existing and built-in solutions over novel tool cr
         self.task = Task(
             task_def=TaskDef(
                 name="tool_manager",
-                agent_def=self._agent,
+                agent_def=self._agent_def,
                 query=f"Select or create tools for this task: {str(task_def)}",
             )
         )
 
-        @self.task._agent.system_prompt  # pylint: disable=protected-access
+        @self.task.agent.system_prompt  # pylint: disable=protected-access
         async def get_available_tools():
             """Return a list of available tool names."""
             tools = ToolSet()
@@ -269,7 +296,7 @@ Preference and utilization of existing and built-in solutions over novel tool cr
                 )
                 return result.data.toolset | requested_tools
             return result.data.toolset
-        return result.data
+        return  # result.data
 
     def analyze_sync(self, *, query: str | None = None) -> ToolSet:
         result = self.task.run_sync(query)
@@ -282,7 +309,7 @@ Preference and utilization of existing and built-in solutions over novel tool cr
                 )
                 return result.data.toolset | requested_tools
             return result.data.toolset
-        return result.data
+        return  # result.data
 
     async def _generate_tool(self, tool_request: ToolRequest) -> Callable:
         if isinstance(tool_request, ToolRequest):

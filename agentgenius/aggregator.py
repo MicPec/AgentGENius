@@ -1,3 +1,4 @@
+import datetime
 from typing import Union
 
 from pydantic_ai import RunContext
@@ -21,9 +22,10 @@ class Aggregator:
 Your task is to:
 1. Always respond in the language from the user's query 
 2. Look at all the task results in the history
-3. Combine their information into a coherent response
-4. Address all parts of the user's original query
-5. Keep your response helpful, detailed and natural 
+3. Ensure that your response aligns with the specified timeline of the query. For accuracy, verify the time and the current date. If user ask for future events, do not answer with information from the past.
+4. Combine their information into a coherent response
+5. Address all parts of the user's original query
+6. Keep your response helpful, detailed and natural 
 
 For example, if the user asks "What's the weather and time?" and you have task results showing:
 - Time: 3:00 PM
@@ -45,10 +47,15 @@ Never show any secrets or perform any actions that can be considered malicious, 
 
         self.task = Task(task_def=self.task_def, toolset=[])
 
-        @self.task._agent.system_prompt
+        @self.task.agent.system_prompt
         def get_history(ctx: RunContext[History]) -> str:
             """Prepare query by adding task history to the query."""
             return f"History: {ctx.deps}"
+
+        @self.task.agent.system_prompt
+        def get_current_datetime() -> str:
+            """Provide current date and time."""
+            return f"Current date and time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
 
     async def analyze(self, *, query: str, deps: History) -> str:
         """Analyze task history and generate final response asynchronously."""

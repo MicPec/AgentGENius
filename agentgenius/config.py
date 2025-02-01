@@ -31,8 +31,8 @@ class AgentGENiusConfig(BaseModel):
     cache_path: Path = Path(tempfile.gettempdir()) / "agentgenius" / "cache"
     tools_path: Path = Path(tempfile.gettempdir()) / "agentgenius" / "tools"
 
-    default_model: Model | str = Field("openai:gpt-4o", description="Default model to use for agents")
-    analyzer_model: Model | str = Field("openai:gpt-4o-mini", description="Model to use for question analyzer")
+    default_model: Model | str = Field("openai:gpt-4o-mini", description="Default model to use for agents")
+    analyzer_model: Model | str = Field("openai:gpt-4o", description="Model to use for question analyzer")
     tool_manager_model: Model | str = Field("openai:gpt-4o", description="Model to use for tool manager")
     tool_coder_model: Model | str = Field("openai:gpt-4o", description="Model to use for tool coder")
     task_runner_model: Model | str = Field("openai:gpt-4o-mini", description="Model to use for task runner")
@@ -49,9 +49,9 @@ class AgentGENiusConfig(BaseModel):
 config = AgentGENiusConfig()
 # config.aggregator_model = deepseek
 
-Path.mkdir(config.logs_path, exist_ok=True)
-Path.mkdir(config.cache_path, exist_ok=True)
-Path.mkdir(config.tools_path, exist_ok=True)
+Path.mkdir(config.logs_path, exist_ok=True, parents=True)
+Path.mkdir(config.cache_path, exist_ok=True, parents=True)
+Path.mkdir(config.tools_path, exist_ok=True, parents=True)
 # logging.basicConfig(
 #     level=config.log_level,
 #     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",

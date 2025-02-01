@@ -50,6 +50,9 @@ class AgentGENius:
                     task_result = await task.run(deps=self.history)
                 except Exception as e:
                     print(f"Error running task {task_def.name}: {e}")
+                    task_history.tasks.append(  # pylint: disable=no-member
+                        TaskItem(query=task_def.name, result=f"Error running task {task_def.name}: {e}")
+                    )
                     continue
 
                 tool_results = self._extract_tool_results(task_result)
@@ -82,7 +85,14 @@ class AgentGENius:
                 tool_manager = ToolManager(model=config.tool_manager_model, task_def=task_def)
                 tools = tool_manager.analyze_sync()
                 task = TaskRunner(model=config.task_runner_model, task_def=task_def, toolset=tools)
-                task_result = task.run_sync(deps=task_history)
+                try:
+                    task_result = task.run_sync(deps=self.history)
+                except Exception as e:
+                    print(f"Error running task {task_def.name}: {e}")
+                    task_history.tasks.append(  # pylint: disable=no-member
+                        TaskItem(query=task_def.name, result=f"Error running task {task_def.name}: {e}")
+                    )
+                    continue
 
                 # Extract tool results from task_result
                 tool_results = self._extract_tool_results(task_result)
