@@ -1,12 +1,13 @@
 import datetime
 from types import NoneType
-from typing import Union
+from typing import Callable, Union
 
 from pydantic_ai import RunContext
+from pydantic_ai.models import Model
 
 from agentgenius.agents import AgentDef, AgentParams
-from agentgenius.history import History, TaskHistory
-from agentgenius.tasks import Task, TaskDef
+from agentgenius.history import History
+from agentgenius.tasks import Task, TaskDef, TaskStatus
 from agentgenius.tools import ToolDef
 
 TaskDefList = list[TaskDef]
@@ -14,7 +15,7 @@ SimpleResponse = str
 
 
 class QuestionAnalyzer:
-    def __init__(self, model: str):
+    def __init__(self, model: Model | str, callback: Callable[[TaskStatus], None] = None):
         self.agent_def = AgentDef(
             model=model,
             name="task analyzer",
@@ -75,7 +76,8 @@ TaskDef(name="search_file", agent_def=AgentDef(...), query="use user's operating
                 name="task_analysis",
                 agent_def=self.agent_def,
                 query="Analyze query and generate a list of subtasks. Query",
-            )
+            ),
+            callback=callback,
         )
 
         @self.task.agent.system_prompt
@@ -113,7 +115,13 @@ TaskDef(name="search_file", agent_def=AgentDef(...), query="use user's operating
 
 
 class TaskRunner:
-    def __init__(self, model: str, task_def: TaskDef, toolset: list[ToolDef]):
+    def __init__(
+        self,
+        model: Model | str,
+        task_def: TaskDef,
+        toolset: list[ToolDef],
+        callback: Callable[[TaskStatus], None] = None,
+    ):
         self.agent_def = AgentDef(
             model=model,
             name="Task solver",
@@ -152,7 +160,7 @@ Instructions:
         if task_def.agent_def is None:
             task_def.agent_def = self.agent_def
         task_def.agent_def.params = AgentParams(deps_type=History)
-        self.task = Task(task_def=task_def, toolset=toolset)
+        self.task = Task(task_def=task_def, toolset=toolset, callback=callback)
 
         @self.task.agent.system_prompt
         def get_history(ctx: RunContext[History]) -> str:

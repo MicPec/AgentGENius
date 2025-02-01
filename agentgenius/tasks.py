@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Callable, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai import Agent, Tool
@@ -18,7 +18,7 @@ class TaskDef(BaseModel):
         toolset (Optional[ToolSet]): The toolset to use for running the task, optional.
 
     Note:
-        The `agent` and `toolset` attributes are optional and can be omitted and set during task creation.
+        The `agent_def` and `toolset` attributes are optional and can be omitted and set during task creation.
         However, the `agent_def` attribute is required in the Task class.
     """
 
@@ -36,6 +36,20 @@ class TaskDef(BaseModel):
         return self.priority < other.priority
 
 
+class TaskStatus(BaseModel):
+    """Status update for a task execution.
+
+    Attributes:
+        task_name: Name of the current task
+        status: Current status message
+        progress: Optional progress value (0-100)
+    """
+
+    task_name: str
+    status: str
+    progress: Optional[float] = None
+
+
 class Task(BaseModel):
     """
     A task with an associated agent and toolset.
@@ -50,6 +64,7 @@ class Task(BaseModel):
     task_def: TaskDef = Field(default_factory=TaskDef)
     agent_def: Optional[AgentDef] = Field(default=None)
     toolset: Optional[ToolSet] = Field(default=None)
+    callback: Optional[Callable[[TaskStatus], None]] = Field(default=None, exclude=True, description="Status callback")
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -82,7 +97,9 @@ class Task(BaseModel):
         t2 = data["toolset"] if "toolset" in data and data["toolset"] is not None else ToolSet()
         toolset = t1 | t2
 
-        super().__init__(task_def=task_def, agent_def=agent_def, toolset=toolset)
+        callback = data["callback"] if "callback" in data else None
+
+        super().__init__(task_def=task_def, agent_def=agent_def, toolset=toolset, callback=callback)
 
         self._agent = Agent(
             model=self.agent_def.model,  # pylint: disable=no-member
@@ -113,7 +130,11 @@ class Task(BaseModel):
                 print(f"Failed to prepare tool {tool}: {str(e)}")
         return result
 
-    def register_tool(self, tool: ToolDef):
+    def _emit_status(self, status: str, progress: Optional[float] = None):
+        if self.callback:
+            self.callback(TaskStatus(task_name=self.task_def.name, status=status, progress=progress))  # pylint: disable=no-member
+
+    def register_tool(self, tool: ToolDef) -> bool:
         """Registers a tool to the task's agent dynamically."""
         try:
             if hasattr(tool, "function"):
@@ -121,8 +142,10 @@ class Task(BaseModel):
             elif callable(tool):
                 self.agent._register_tool(Tool(tool))  # pylint: disable=protected-access
             self.toolset.add(tool)  # pylint: disable=no-member
+            return True
         except Exception as e:
             print(f"Failed to register tool {tool}: {str(e)}")
+            return False
 
     def register_toolset(self, toolset: ToolSet):
         """Registers toolset to the task's agent dynamically."""
@@ -135,19 +158,27 @@ class Task(BaseModel):
         query = self.task_def.query  # pylint: disable=no-member
         if self.task_def.query and args:  # pylint: disable=no-member
             query = f"{self.task_def.query}: {args[0]}"  # pylint: disable=no-member
+        self._emit_status("Running task", None)
         try:
-            return await self.agent.run(query, **kwargs)
+            result = await self.agent.run(query, **kwargs)
+            self._emit_status("Task completed", 100)
+            return result
         except Exception as e:
-            print(f"Task execution failed: {str(e)}")
-            if hasattr(e, "__cause__") and e.__cause__:
-                print(f"Cause: {str(e.__cause__)}")
-            raise
+            self._emit_status(f"Task failed: {str(e)}", None)
+            raise e
 
     def run_sync(self, *args, **kwargs):
         query = self.task_def.query  # pylint: disable=no-member
         if self.task_def.query and args:  # pylint: disable=no-member
             query = f"{self.task_def.query}: {args[0]}"  # pylint: disable=no-member
-        return self.agent.run_sync(query, **kwargs)
+        self._emit_status("Running task", None)
+        try:
+            result = self.agent.run_sync(query, **kwargs)
+            self._emit_status("Task completed", 100)
+            return result
+        except Exception as e:
+            self._emit_status(f"Task failed: {str(e)}", None)
+            raise e
 
     @property
     def agent(self):

@@ -52,7 +52,7 @@ class TypeField:
                 return TYPE_MAPPING[value]
             # Try to evaluate as a type expression
             try:
-                return eval(value, search_frame(value))
+                return eval(value, search_frame(value))  # pylint: disable=eval-used
             except Exception as e:
                 raise ValueError(f"Invalid type: {value}") from e
         if isinstance(value, (type, GenericAlias, _GenericAlias, _UnionGenericAlias)):

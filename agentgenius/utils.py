@@ -1,13 +1,14 @@
 import importlib
 import inspect
 import sys
-import tempfile
 from functools import cache, wraps
 from pathlib import Path
 from types import GenericAlias
 from typing import Any, Dict
 
 from pydantic import TypeAdapter
+
+from agentgenius.config import config
 
 
 class TypeAdapterMixin:
@@ -87,7 +88,7 @@ def load_generated_tools() -> Dict[str, Any]:
         Dict[str, Any]: Dictionary mapping tool names to their function objects
     """
     tools = {}
-    temp_dir = Path(tempfile.gettempdir()) / "agentgenius_tools"
+    temp_dir = config.tools_path
 
     if not temp_dir.exists():
         return tools
@@ -131,7 +132,6 @@ def load_builtin_tools() -> Dict[str, Any]:
     tools = {}
 
     try:
-        # Import the builtin_tools module
         from agentgenius import builtin_tools
 
         # Get all callable functions that don't start with _

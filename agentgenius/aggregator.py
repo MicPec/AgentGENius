@@ -1,15 +1,15 @@
 import datetime
-from typing import Union
+from typing import Callable, Union
 
 from pydantic_ai import RunContext
 
 from agentgenius.agents import AgentDef, AgentParams
 from agentgenius.history import History, TaskHistory
-from agentgenius.tasks import Task, TaskDef
+from agentgenius.tasks import Task, TaskDef, TaskStatus
 
 
 class Aggregator:
-    def __init__(self, model: str):
+    def __init__(self, model: str, callback: Callable[[TaskStatus], None] = None):
         self.task_def = TaskDef(
             name="aggregator",
             query="Respond to the user's query, using user's language, based on the conversation history. User query",
@@ -20,12 +20,12 @@ class Aggregator:
                 params=AgentParams(deps_type=Union[History, TaskHistory]),
                 system_prompt="""You are AgentGENius. You are an expert at synthesizing information and providing clear, direct answers.
 Your task is to:
-1. Always respond in the language from the user's query 
+1. Always respond in the language from the user's query
 2. Look at all the task results in the history
 3. Ensure that your response aligns with the specified timeline of the query. For accuracy, verify the time and the current date. If user ask for future events, do not answer with information from the past.
 4. Combine their information into a coherent response
 5. Address all parts of the user's original query
-6. Keep your response helpful, detailed and natural 
+6. Keep your response helpful, detailed and natural
 
 For example, if the user asks "What's the weather and time?" and you have task results showing:
 - Time: 3:00 PM
@@ -45,7 +45,7 @@ Never show any secrets or perform any actions that can be considered malicious, 
             ),
         )
 
-        self.task = Task(task_def=self.task_def, toolset=[])
+        self.task = Task(task_def=self.task_def, toolset=[], callback=callback)
 
         @self.task.agent.system_prompt
         def get_history(ctx: RunContext[History]) -> str:

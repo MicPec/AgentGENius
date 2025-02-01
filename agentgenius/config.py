@@ -1,15 +1,13 @@
 import logging
-from datetime import datetime
 import os
-from pathlib import Path
 import tempfile
+from pathlib import Path
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
-from pydantic_ai.models import KnownModelName
-from pydantic_ai.models import Model
-from pydantic_ai.models.openai import OpenAIModel
 from dotenv import load_dotenv
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic_ai.models import KnownModelName, Model
+from pydantic_ai.models.openai import OpenAIModel
 
 load_dotenv()
 
@@ -39,7 +37,7 @@ class AgentGENiusConfig(BaseModel):
     aggregator_model: Model | str = Field("openai:gpt-4o-mini", description="Model to use for aggregator")
 
     known_models: KnownModelName = Field(
-        default=Literal["openai:gpt-4o", "openai:gpt-4o-mini"], description="Known models to use by agents"
+        default=Literal["openai:gpt-4o", "openai:gpt-4o-mini", "test"], description="Known models to use by agents"
     )
 
     logs_path: Path = Field(default=Path("logs"), description="Path to store logs")

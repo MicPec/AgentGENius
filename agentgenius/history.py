@@ -45,9 +45,9 @@ class History(BaseModel):
 
     def append(self, item: TaskHistory) -> None:
         """Add new item to history, removing oldest if max_items limit is reached"""
-        self.items.append(item)
+        self.items.append(item)  # pylint: disable=no-member
         if len(self) > self.max_items:
-            self.items.pop(0)
+            self.items.pop(0)  # pylint: disable=no-member
 
     def get_current_item(self) -> Optional[TaskHistory]:
         """Get the most recent history item"""

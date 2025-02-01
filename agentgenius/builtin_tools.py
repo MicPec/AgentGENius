@@ -77,7 +77,7 @@ def get_duckduckgo_zero_click(query):
     return data
 
 
-def get_wikipedia_summary(title, language="en"):
+def get_wikipedia_summary(title, language="en") -> str:
     """Get the summary of a Wikipedia page.
 
     Args:
@@ -100,7 +100,7 @@ def get_wikipedia_summary(title, language="en"):
         return "The page does not exist."
 
 
-def get_wikipedia_page(title, language="en", max_length=1000):
+def get_wikipedia_page(title, language="en", max_length=1000) -> str:
     """Get the full text of a Wikipedia page.
 
     Args:
@@ -264,7 +264,7 @@ def get_home_directory() -> str:
     try:
         return str(Path.home())
     except Exception as e:
-        return {"error": f"Error getting home directory: {str(e)}"}
+        return f"Error getting home directory: {str(e)}"
 
 
 def get_current_working_directory() -> str:
@@ -345,7 +345,6 @@ def check_file_existence(file_path: str) -> bool:
     try:
         return os.path.isfile(file_path)
     except Exception as e:
-        # If any unexpected error occurs, handle gracefully
         return False
 
 
@@ -372,7 +371,7 @@ def identify_language(query: str) -> str:
         language_code = detect(query)
         return language_code
     except LangDetectException as e:
-        raise ValueError(f"Could not detect the language: {e}")
+        return f"Could not detect the language: {e}"
 
 
 if __name__ == "__main__":
