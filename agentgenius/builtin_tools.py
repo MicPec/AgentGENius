@@ -203,7 +203,7 @@ def write_json(file_path: str, data: Dict[str, Any], indent: int = 2) -> str:
         return f"Error writing JSON file: {str(e)}"
 
 
-def extract_text_from_url(url: str, max_chars: int = 1000) -> str:
+def extract_text_from_url(url: str, max_chars: int = 2000) -> str:
     """Extract readable text content from a URL using readability algorithms.
 
     Args:
@@ -372,6 +372,131 @@ def identify_language(query: str) -> str:
         return language_code
     except LangDetectException as e:
         return f"Could not detect the language: {e}"
+
+
+def scrape_webpage(
+    url: str,
+    selectors: Optional[Dict[str, str]] = None,
+    dynamic: bool = False,
+    wait_time: int = 0,
+    headers: Optional[Dict[str, str]] = None,
+    extract_metadata: bool = True,
+) -> Dict[str, Any]:
+    """
+    Universal web scraping function designed for AI agent use.
+
+    Args:
+        url (str): The URL to scrape
+        selectors (Dict[str, str], optional): CSS selectors to extract specific content
+            Example: {"title": "h1.main-title", "price": "span.price"}
+        dynamic (bool): Whether to use Selenium for JavaScript-rendered content
+        wait_time (int): Seconds to wait for dynamic content to load (only used if dynamic=True)
+        headers (Dict[str, str], optional): Custom headers for the request
+        extract_metadata (bool): Whether to extract page metadata (title, description, etc.)
+
+    Returns:
+        Dict[str, Any]: Dictionary containing:
+            - 'content': Main page content
+            - 'selected_content': Content matching provided selectors (if any)
+            - 'metadata': Page metadata (if extract_metadata=True)
+            - 'status': Success/failure status
+            - 'error': Error message if any
+    """
+    try:
+        import requests
+        from bs4 import BeautifulSoup
+        import json
+        from urllib.parse import urljoin
+
+        # Default headers to mimic a browser
+        default_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        headers = headers or default_headers
+
+        result = {"content": "", "selected_content": {}, "metadata": {}, "status": "success", "error": None}
+
+        if dynamic:
+            try:
+                from selenium import webdriver
+                from selenium.webdriver.chrome.options import Options
+                from selenium.webdriver.support.ui import WebDriverWait
+                from selenium.webdriver.support import expected_conditions as EC
+
+                chrome_options = Options()
+                chrome_options.add_argument("--headless")
+                chrome_options.add_argument("--no-sandbox")
+                chrome_options.add_argument("--disable-dev-shm-usage")
+
+                driver = webdriver.Chrome(options=chrome_options)
+                driver.get(url)
+
+                if wait_time > 0:
+                    WebDriverWait(driver, wait_time)
+
+                page_source = driver.page_source
+                driver.quit()
+
+            except Exception as e:
+                return {
+                    "content": "",
+                    "selected_content": {},
+                    "metadata": {},
+                    "status": "error",
+                    "error": f"Selenium error: {str(e)}",
+                }
+        else:
+            response = requests.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+            page_source = response.text
+
+        soup = BeautifulSoup(page_source, "html.parser")
+
+        # Extract main content (remove scripts, styles, and other non-content elements)
+        for script in soup(["script", "style", "meta", "link"]):
+            script.decompose()
+
+        result["content"] = soup.get_text(separator=" ", strip=True)
+
+        # Extract content based on provided selectors
+        if selectors:
+            for key, selector in selectors.items():
+                elements = soup.select(selector)
+                if elements:
+                    # If multiple elements found, return a list
+                    if len(elements) > 1:
+                        result["selected_content"][key] = [elem.get_text(strip=True) for elem in elements]
+                    else:
+                        result["selected_content"][key] = elements[0].get_text(strip=True)
+                else:
+                    result["selected_content"][key] = None
+
+        # Extract metadata if requested
+        if extract_metadata:
+            metadata = {}
+
+            # Title
+            title_tag = soup.find("title")
+            metadata["title"] = title_tag.string if title_tag else None
+
+            # Meta description
+            meta_desc = soup.find("meta", attrs={"name": "description"})
+            metadata["description"] = meta_desc.get("content") if meta_desc else None
+
+            # Open Graph metadata
+            og_tags = soup.find_all("meta", property=lambda x: x and x.startswith("og:"))
+            metadata["og"] = {tag.get("property")[3:]: tag.get("content") for tag in og_tags}
+
+            # Links
+            links = soup.find_all("a", href=True)
+            metadata["links"] = [urljoin(url, link["href"]) for link in links]
+
+            result["metadata"] = metadata
+
+        return result
+
+    except Exception as e:
+        return {"content": "", "selected_content": {}, "metadata": {}, "status": "error", "error": str(e)}
 
 
 if __name__ == "__main__":
