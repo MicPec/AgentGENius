@@ -44,5 +44,8 @@ lint.ignore = [
     "B905",  # zip() without an explicit strict= parameter
 ]
 
+[tool.logfire]
+ignore_no_config = true
+
 [tool.dependencies]
 nest-asyncio = "*"
