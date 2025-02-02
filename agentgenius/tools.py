@@ -1,4 +1,5 @@
 from typing import Callable, List, Optional, Sequence, Union
+import inspect
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_ai.tools import Tool
@@ -95,19 +96,24 @@ class ToolSet(BaseModel):
         else:
             return self
 
+    def _tool_exists(self, name: str) -> Optional[ToolDef]:
+        """Check if a tool with the given name exists and return it if found."""
+        return next((tool for tool in self.tools if tool.name == name), None)
+
     def add(self, tool: ToolType) -> None:
         if isinstance(tool, Callable):
-            if not self._check_tool_exists(tool.__name__):
-                t = ToolDef(name=tool.__name__)
-                self.tools.append(t)  # pylint: disable=no-member
+            if existing := self._tool_exists(tool.__name__):
+                frame = inspect.currentframe()
+                frame.f_globals[tool.__name__] = tool
+                self.tools[self.tools.index(existing)] = ToolDef(name=tool.__name__)
             else:
-                raise ValueError(f"Tool {tool.__name__} already exists in ToolSet")
+                self.tools.append(ToolDef(name=tool.__name__))
         elif isinstance(tool, str):
-            if not self._check_tool_exists(tool):
-                t = ToolDef(name=tool)
-                self.tools.append(t)  # pylint: disable=no-member
+            t = ToolDef(name=tool)
+            if existing := self._tool_exists(tool):
+                self.tools[self.tools.index(existing)] = t
             else:
-                raise ValueError(f"Tool {tool} already exists in ToolSet")
+                self.tools.append(t)
         elif isinstance(tool, list):
             for t in tool:
                 self.add(t)
@@ -130,9 +136,6 @@ class ToolSet(BaseModel):
             Callable or default: The tool function if found, otherwise the default value.
         """
         return next((tool.function for tool in self.tools if tool.name == name), default)
-
-    def _check_tool_exists(self, name: str) -> bool:
-        return next((True for tool in self.tools if tool.name == name), False)
 
     def __iter__(self):
         return iter(self.tools)
