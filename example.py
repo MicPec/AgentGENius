@@ -10,10 +10,20 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.prompt import Prompt
 
-from agentgenius.main import AgentGENius
+from agentgenius.main import AgentGENius, TaskStatus
 
 load_dotenv()
 # logfire.configure(send_to_logfire="if-token-present", console=False)
+
+
+def status_callback(status: TaskStatus):
+    """Callback function to display task status using Rich."""
+    console = Console()
+    status_text = f"[bold cyan]{status.task_name}[/bold cyan]: {status.status}"
+    if status.progress is not None:
+        status_text += f" ([bold green]{status.progress:.1f}%[/bold green])"
+    console.print(" " * 80, end="\r")  # Clear the current line
+    console.print(status_text, end="\r")
 
 
 def main():
@@ -21,9 +31,8 @@ def main():
     console.print("[bold blue]AgentGENius Chat[/bold blue]")
     console.print("Type 'bye' or press Ctrl+C to quit\n")
 
-    # Initialize agent
-    # agent = AgentGENius(model="ollama:qwen2.5:14b")
-    agent = AgentGENius(model="openai:gpt-4o")
+    # Initialize agent with callback
+    agent = AgentGENius(model="openai:gpt-4", callback=status_callback)
 
     try:
         while True:

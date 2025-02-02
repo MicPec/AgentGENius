@@ -103,9 +103,10 @@ class ToolSet(BaseModel):
     def add(self, tool: ToolType) -> None:
         if isinstance(tool, Callable):
             if existing := self._tool_exists(tool.__name__):
-                frame = inspect.currentframe()
-                frame.f_globals[tool.__name__] = tool
-                self.tools[self.tools.index(existing)] = ToolDef(name=tool.__name__)
+                pass
+                # frame = inspect.currentframe()
+                # frame.f_globals[tool.__name__] = tool
+                # self.tools[self.tools.index(existing)] = ToolDef(name=tool.__name__)
             else:
                 self.tools.append(ToolDef(name=tool.__name__))
         elif isinstance(tool, str):

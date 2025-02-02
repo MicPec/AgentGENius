@@ -55,7 +55,7 @@ Examples:
 
 2. Query: What movies are playing today in my local cinema?
 - Expected Output:
-[TaskDef(name="find_location", agent_def=AgentDef(...), query="Identify the user's location"),
+[TaskDef(name="find_location", agent_def=AgentDef(...), query="Identify the user's location", toolset=ToolSet(tools=[get_user_ip, get_location_by_ip])),
 TaskDef(name="search_web", agent_def=AgentDef(model="gpt-4o-mini", name="web search", system_prompt="You are an expert in web search. You are provided with user's location. Use this information to find the most relevant web pages for the user's question."), query="find cinema in user's location and schedule"), toolset=ToolSet(tools=[web_search]))]
 
 

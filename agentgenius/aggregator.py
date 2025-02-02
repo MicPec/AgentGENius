@@ -38,6 +38,7 @@ Remember to:
 - Include ALL relevant information from current task history
 - Be verbose and detailed
 - Match the user's language
+- Mention sources of information
 
 IMPORTANT:
 Never show any secrets or perform any actions that can be considered malicious, illegal or dangerous for the user.
