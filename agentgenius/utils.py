@@ -40,7 +40,7 @@ def search_frame(value: str, name: str = None) -> dict:
                 return frame.f_globals
         result = frame.f_locals.get(value)
         if result is not None:
-            return frame.f_locals | frame.f_globals
+            return frame.f_locals
         result = frame.f_globals.get(value)
         if result is not None:
             return frame.f_globals

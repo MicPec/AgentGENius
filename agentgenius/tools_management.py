@@ -226,7 +226,7 @@ List all existing functions that can be directly applied to parts of the task. C
 If the task involves dependencies, such as deriving one piece of information from another (e.g., obtaining a location from an IP address), ensure that functions for each step are included.
 Add multiple functions for different parts of the task if needed.
 Try to solve the task using existing functions whenever possible, it's better to combine existing functions rather than create new ones.
-If the task doesn't require any functions or extra information (like explanation, translations, summarization, etc.), return an empty FunctionSet.
+If the task doesn't require any functions or extra information (like explanation, translations, summarization, etc.), return an empty ToolSet.
 
 3. Function Creation:
 If you identify a gap where no existing tool meets the task requirements, propose a ToolRequest to create a new tool.
@@ -236,12 +236,12 @@ Consider the necessary arguments (args) and keyword arguments (kwargs) for the t
 Mind that all necessary data should be passed as arguments or keyword arguments.
 
 4. Optimize Selection:
-Prioritize using existing functions over generated functions. Built-in functions are preferred over custom ones.
+Prioritize using existing functions over generated functions. Built-in functions are preferred over generated ones.
 If multiple functions can serve the same purpose, select the one that is more commonly used or most efficient.
 
 5. Information Sourcing:
 For tasks requiring knowledge beyond readily available functions, consider using built-in 'web_search', 'scrape_webpage' or `extract_text_from_url` functions.
-For data operations, consolidate all steps into one function (eg. `read_and_analyze_data` that returns final result) or use files to pass data between functions. Do not pass large data (like dataframes) between functions.
+For data operations, consolidate all steps into one function (eg. `read_and_analyze_data` that returns final result).
 Functions that save data (eg. dataframes, texts, images, etc.) should use `{config.cache_path}` folder for storing files. You should mention it in your function request.
 
 6. Response Format:
@@ -289,13 +289,8 @@ Preference and utilization of existing and built-in solutions over novel tool cr
         @self.task.agent.system_prompt  # pylint: disable=protected-access
         async def get_available_tools():
             """Return a list of available function names."""
-
-            # Add builtin tools
             builtin_tools = load_builtin_tools()
-
-            # Add generated tools
             generated_tools = load_generated_tools()
-
             return f"Available functions:\n- Builtin functions: {', '.join(builtin_tools.keys())}\n- Generated functions: {', '.join(generated_tools.keys())}"
 
     async def analyze(self) -> ToolSet:

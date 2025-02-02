@@ -178,7 +178,7 @@ if __name__ == "__main__":
         print(f"Status: {status.status}", end="\t\t")
         if status.progress is not None:
             print(f"Progress: {status.progress}%", end="")
-        print("\r", end="")
+        print()
 
     def main():
         agentgenius = AgentGENius(callback=status_callback)

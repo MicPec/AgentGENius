@@ -9,6 +9,7 @@ from agentgenius.agents import AgentDef, AgentParams
 from agentgenius.history import History
 from agentgenius.tasks import Task, TaskDef, TaskStatus
 from agentgenius.tools import ToolDef
+from agentgenius.utils import load_builtin_tools
 
 TaskDefList = list[TaskDef]
 SimpleResponse = str
@@ -32,7 +33,7 @@ Instructions:
 - Ensure there is no duplication of tools; leverage the results from previous subtasks where applicable.
 
 3. Information Gathering:
-- Identify what information is needed for each subtask. If any information is missing, create a new task to acquire it.
+- Identify what information is needed for each subtask. If any information is missing, create a new task to acquire it. Suggest functions to gather the necessary information, but do not duplicate them.
 - For question that requires searching internet, suggest a 'web_search' tool as needed.
 - For queries that do not require additional external information—such as greetings, previous interactions, general conversation, or translations—please refrain from creating a new task or providing a response. Instead, indicate that such queries will be handled by another AI agent.
 
@@ -50,18 +51,18 @@ Instructions:
 Examples:
 
 1. Query: What time is it?
-- Expected Output: `[TaskDef(name="time_info", agent_def=AgentDef(...), query="get the current time")]`
+- Expected Output: `[TaskDef(name="time_info", agent_def=AgentDef(...), query="get the current time", toolset=ToolSet(tools=[get_datetime]))]`
 
 2. Query: What movies are playing today in my local cinema?
 - Expected Output:
 [TaskDef(name="find_location", agent_def=AgentDef(...), query="Identify the user's location"),
-TaskDef(name="search_web", agent_def=AgentDef(model="gpt-4o-mini", name="web search", system_prompt="You are an expert in web search. You are provided with user's location. Use this information to find the most relevant web pages for the user's question."), query="find cinema in user's location and schedule")]
+TaskDef(name="search_web", agent_def=AgentDef(model="gpt-4o-mini", name="web search", system_prompt="You are an expert in web search. You are provided with user's location. Use this information to find the most relevant web pages for the user's question."), query="find cinema in user's location and schedule"), toolset=ToolSet(tools=[web_search]))]
 
 
 3. Query: Search for file in my home directory
 - Expected Output:
 [TaskDef(name="os_info", agent_def=AgentDef(...), query="identify user's operating system"),
-TaskDef(name="user_info", agent_def=AgentDef(...), query="get user's name and home directory"),
+TaskDef(name="user_info", agent_def=AgentDef(...), query="get user's name and home directory", toolset=ToolSet(tools=[get_username, get_home_directory])),
 TaskDef(name="search_file", agent_def=AgentDef(...), query="use user's operating system to search for the file")]
 
 
@@ -100,6 +101,12 @@ TaskDef(name="search_file", agent_def=AgentDef(...), query="use user's operating
             """Get current date and time."""
             result = f"Current date and time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
             return result
+
+        @self.task.agent.system_prompt  # pylint: disable=protected-access
+        async def get_available_tools():
+            """Return a list of available function names."""
+            builtin_tools = load_builtin_tools()
+            return f"Builtin functions: {', '.join(builtin_tools.keys())}"
 
     async def analyze(self, *, query: str, deps: History) -> Union[SimpleResponse, TaskDefList]:
         result = await self.task.run(query, deps=deps)
