@@ -4,7 +4,7 @@ import sys
 from functools import cache, wraps
 from pathlib import Path
 from types import GenericAlias
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from pydantic import TypeAdapter
 
@@ -146,3 +146,42 @@ def load_builtin_tools() -> Dict[str, Any]:
         print(f"Error loading builtin tools: {e}")
 
     return tools
+
+
+def extract_tool_results(task_result) -> List[Dict[str, str]]:
+    # Extract tool results from task_result
+    tool_results = []
+    # if not task_result._all_messages:
+    #     return tool_results
+    for msg in task_result._all_messages:
+        if msg.kind == "response" and hasattr(msg, "parts"):
+            for part in msg.parts:
+                if hasattr(part, "tool_name"):
+                    # Find the corresponding tool return
+                    tool_return = next(
+                        (
+                            ret.parts[0].content
+                            for ret in task_result._all_messages
+                            if ret.kind == "request"
+                            and hasattr(ret, "parts")
+                            and hasattr(ret.parts[0], "tool_call_id")
+                            and ret.parts[0].tool_call_id == part.tool_call_id
+                        ),
+                        None,
+                    )
+                    if tool_return:
+                        tool_args = (
+                            part.args.args_json
+                            if hasattr(part.args, "args_json")
+                            else part.args.args_dict
+                            if hasattr(part.args, "args_dict")
+                            else part.args
+                        )
+                        tool_results.append(
+                            {
+                                "tool": part.tool_name,
+                                "args": str(tool_args),
+                                "result": str(tool_return) if tool_return is not None else "",
+                            }
+                        )
+    return tool_results

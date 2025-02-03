@@ -10,7 +10,7 @@ from agentgenius.history import History, TaskHistory, TaskItem
 from agentgenius.task_management import QuestionAnalyzer, TaskRunner
 from agentgenius.tasks import TaskStatus
 from agentgenius.tools_management import ToolManager
-from agentgenius.utils import save_history
+from agentgenius.utils import extract_tool_results, save_history
 
 # from agentgenius.tasks import TaskDef
 
@@ -64,7 +64,7 @@ class AgentGENius:
                     )
                     continue
 
-                tool_results = self._extract_tool_results(task_result)
+                tool_results = extract_tool_results(task_result)
                 task_history.tasks.append(  # pylint: disable=no-member
                     TaskItem(query=task_def.name, result=task_result.data, tool_results=tool_results)
                 )
@@ -92,7 +92,7 @@ class AgentGENius:
             # Process each task
             for cnt, task_def in enumerate(result):
                 tool_manager = ToolManager(model=config.tool_manager_model, task_def=task_def, callback=self.callback)
-                self._emit_status(task_def.name, "Analyzing task", 100 * (cnt + 1) / len(result))
+                self._emit_status(task_def.name, "Analyzing task", 100 * (cnt + 1) // len(result))
                 tools = tool_manager.analyze_sync()
                 task = TaskRunner(
                     model=config.task_runner_model, task_def=task_def, toolset=tools, callback=self.callback
@@ -109,7 +109,7 @@ class AgentGENius:
                     continue
 
                 # Extract tool results from task_result
-                tool_results = self._extract_tool_results(task_result)
+                tool_results = extract_tool_results(task_result)
                 task_history.tasks.append(  # pylint: disable=no-member
                     TaskItem(query=task_def.name, result=task_result.data, tool_results=tool_results)
                 )
@@ -121,41 +121,6 @@ class AgentGENius:
         # Update history
         task_history.final_result = final_result
         return final_result
-
-    def _extract_tool_results(self, task_result):
-        # Extract tool results from task_result
-        tool_results = []
-        # if not task_result._all_messages:
-        #     return tool_results
-        for msg in task_result._all_messages:
-            if msg.kind == "response" and hasattr(msg, "parts"):
-                for part in msg.parts:
-                    if hasattr(part, "tool_name"):
-                        # Find the corresponding tool return
-                        tool_return = next(
-                            (
-                                ret.parts[0].content
-                                for ret in task_result._all_messages
-                                if ret.kind == "request"
-                                and hasattr(ret, "parts")
-                                and hasattr(ret.parts[0], "tool_call_id")
-                                and ret.parts[0].tool_call_id == part.tool_call_id
-                            ),
-                            None,
-                        )
-                        if tool_return:
-                            tool_results.append(
-                                {
-                                    "tool": part.tool_name,
-                                    "args": str(part.args.args_json)
-                                    if hasattr(part.args, "args_json")
-                                    else str(part.args.args_dict)
-                                    if hasattr(part.args, "args_dict")
-                                    else "{}",
-                                    "result": str(tool_return) if tool_return is not None else "",
-                                }
-                            )
-        return tool_results
 
     def _emit_status(self, task_name: str, status: str, progress: int | None):
         self.callback(TaskStatus(task_name=task_name, status=status, progress=progress))
@@ -182,9 +147,9 @@ if __name__ == "__main__":
 
     def main():
         agentgenius = AgentGENius(callback=status_callback)
-        query = "show RAM and free  on my system"
+        query = "show RAM and free on my system"
         result = agentgenius.ask_sync(query)
-        print(result)
         print(agentgenius.history)
+        print(result)
 
     main()
