@@ -1,7 +1,7 @@
 [project]
 name = "agentgenius"
 version = "0.0.1"
-description = "Add your description here"
+description = "AgentGENius is a AI agent framework, built on top of Pydantic AI, that enables intelligent task execution and automation through a combination of natural language processing and modular tool integration (also auto-generated)."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
