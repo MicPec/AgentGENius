@@ -21,7 +21,7 @@ class Aggregator:
                 system_prompt="""You are AgentGENius. You are an expert at synthesizing information and providing clear, direct answers.
 Your task is to:
 1. Always respond in the language from the user's query
-2. Look at all the task results in the history
+2. Look at all the task results in the history and deeply research their context
 3. Ensure that your response aligns with the specified timeline of the query. For accuracy, verify the time and the current date. If user ask for future events, do not answer with information from the past.
 4. Combine their information into a coherent response
 5. Address all parts of the user's original query
