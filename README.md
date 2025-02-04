@@ -5,8 +5,8 @@
   / /\ \ / _` |/ _ \ '_ \| __| | |_ |  __| | . ` | | | | / __|
  / ____ \ (_| |  __/ | | | |_| |__| | |____| |\  | | |_| \__ \
 /_/    \_\__, |\___|_| |_|\__|\_____|______|_| \_|_|\__,_|___/
-           __/ |                                               
-          |___/                                                
+          __/ |                                               
+         |___/                                                
 ```
 
 
@@ -40,7 +40,7 @@ uv sync
 OPENAI_API_KEY="sk-proj-****"
 TAVILY_API_KEY="tvly-****"
 ```
-
+Those two keys can be obtained from the [OpenAI API](https://platform.openai.com) and [Tavily API](https://app.tavily.com/) websites.
 ## Usage
 
 ### CLI Chat Application
