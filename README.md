@@ -35,7 +35,7 @@ cd AgentGENius
 uv sync
 ```
 
-3. add API keys to .env file
+3. Add API keys to the `.env` file:
 ```code
 OPENAI_API_KEY="sk-proj-****"
 TAVILY_API_KEY="tvly-****"
@@ -67,7 +67,7 @@ The following diagram shows the high-level architecture and flow of AgentGENius:
 
 ```mermaid
 graph TB
-    User[User Query] --> AG[AgentGENius]
+    User((User)) --> |Query| AG[AgentGENius]
     AG --> QA[Question Analyzer]
 
     subgraph Processing [Task Processing]
@@ -91,6 +91,7 @@ graph TB
     TC --> Tools
     Tools -.-> TM & TR
     History -.-> AGG & QA
+
 
     style User fill:#373,color:#fff
     style AG fill:#22e,color:#fff
